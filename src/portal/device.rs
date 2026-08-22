@@ -58,7 +58,14 @@ impl Device {
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("infinite-solutions"),
             required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
+            // downlevel_defaults caps every texture dimension at 2048, and a swapchain
+            // is measured against that cap: a window on a large or scaled display asks
+            // `Surface::configure` for more than 2048 and the configure fails validation.
+            // Keep the downlevel floor for everything else — it is the compatibility
+            // promise this code is written to — and take the resolution limits from the
+            // adapter, which is the thing the display's own size is bounded by.
+            required_limits: wgpu::Limits::downlevel_defaults()
+                .using_resolution(adapter.limits()),
             experimental_features: wgpu::ExperimentalFeatures::disabled(),
             memory_hints: wgpu::MemoryHints::default(),
             trace: wgpu::Trace::Off,
