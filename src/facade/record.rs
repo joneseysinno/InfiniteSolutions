@@ -131,26 +131,34 @@ pub fn decode_space(bytes: &[u8]) -> Option<SpaceRecord> {
     })
 }
 
-/// Encodes a fill as four unit intervals.
-pub fn encode_style(fill: [f64; 4]) -> Vec<u8> {
+/// Encodes one style row: its name, and a fill as four unit intervals.
+///
+/// **The name is part of the record** (D44). A space carries an opaque style *key*
+/// and the table is addressed by *address*; without the name in the row there is
+/// nothing to join them on, and the facade would have to know the editor's
+/// addresses to resolve a colour — which is R2 backwards.
+pub fn encode_style(name: &str, fill: [f64; 4]) -> Vec<u8> {
     let mut out = Vec::from(STYLE_MAGIC);
     for n in fill {
         out.extend_from_slice(&n.to_le_bytes());
     }
+    put_str(&mut out, name);
     out
 }
 
-/// Decodes a fill. `None` if the payload is not a style record.
-pub fn decode_style(bytes: &[u8]) -> Option<[f64; 4]> {
+/// Decodes one style row as `(name, fill)`. `None` if the payload is not one.
+pub fn decode_style(bytes: &[u8]) -> Option<(String, [f64; 4])> {
     if bytes.len() < 3 + 32 || !bytes.starts_with(STYLE_MAGIC) {
         return None;
     }
-    Some([
+    let fill = [
         f64::from_le_bytes(bytes[3..11].try_into().ok()?),
         f64::from_le_bytes(bytes[11..19].try_into().ok()?),
         f64::from_le_bytes(bytes[19..27].try_into().ok()?),
         f64::from_le_bytes(bytes[27..35].try_into().ok()?),
-    ])
+    ];
+    let (name, _) = take_str(bytes, 35)?;
+    Some((name, fill))
 }
 
 /// Encodes one composition. Deterministic.

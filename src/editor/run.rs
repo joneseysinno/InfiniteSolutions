@@ -11,6 +11,11 @@ pub fn bind(store: &Store) {
         addresses::BEHAVIOUR_ROOT_KEY,
     );
     store.bind_graph(addresses::GRAPH_ROOT_KEY);
+    // D44 and E10.2: the app owns its addresses (D34), so the app hands the facade
+    // the style table and the space whose fill is the background. The facade never
+    // names an editor address, and the background is authored rather than a constant.
+    store.bind_styles(addresses::STYLE_ROOT_KEY, addresses::STYLE_END_KEY);
+    store.bind_background(addresses::CANVAS_KEY);
 }
 
 /// Fills unbound ports from pending input and runs the linked plan.

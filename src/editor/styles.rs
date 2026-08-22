@@ -13,13 +13,18 @@ pub struct Descriptor {
 
 /// Bootstrap default for the case where the store has no style space.
 pub fn bootstrap_default(key: &str) -> Descriptor {
-    if key == "plain" {
-        Descriptor {
+    match key {
+        "plain" => Descriptor {
             fill: [0.22, 0.48, 0.82, 1.0],
-        }
-    } else {
-        Descriptor {
+        },
+        "canvas" => Descriptor {
+            fill: [0.12, 0.13, 0.16, 1.0],
+        },
+        // Visible, and deliberately not the background: a style key with no authored
+        // row must not be indistinguishable from nothing being there
+        // (`PRESENTER.md` §13 finding 8).
+        _ => Descriptor {
             fill: [0.55, 0.55, 0.55, 1.0],
-        }
+        },
     }
 }

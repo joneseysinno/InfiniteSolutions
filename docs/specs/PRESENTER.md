@@ -23,7 +23,7 @@
 | S5 | Arrangement | landed | `arrange` runs with no graph, no surface and no store present; the hysteresis sweep (§7.3) crosses each boundary in both directions and settles |
 | S6 | Placement and probe | landed | The **self-sufficiency test** (§8.4): `probe` answers with no port in scope at all, in O(depth), over a corpus of overlapping, clipped and collapsed cases |
 | S7 | Discard | landed | `Placement` passes the runtime's generic R12 harness (D25) with **no** per-artifact test code contributed by this layer |
-| S8 | First real binding, in the facade | landed | The S3–S7 tests pass unchanged against real `infinite-db` and a real wgpu `Surface` |
+| S8 | First real binding, in the facade | landed — see the correction below | The S3–S7 tests pass unchanged against real `infinite-db` and a real wgpu `Surface`, **and `tests/pixels.rs` reads the frame back** |
 
 ---
 
@@ -536,6 +536,18 @@ self-sufficient. The test is the detector, and it is a compile-time one.
 ---
 
 ## 9 · Drawing
+
+> **Correction, 2026-08-22 (E10.0, D41).** From the change that landed S8 until the
+> one that landed E10.4, this document's S8 row read *"a real wgpu `Surface`"* and no
+> such thing existed: `src/facade/ports/surface.rs` computed the frame's quads and
+> discarded them, and no adapter, device, pipeline or render pass existed anywhere in
+> the repository. The row was not corrected for four stages because every check
+> capable of failing was arithmetic. It is now verified by `tests/pixels.rs`, which
+> renders into a texture and reads the pixels back, and which was confirmed to fail
+> against the discarding implementation before the replacement was written. Recorded
+> here rather than silently edited (R21), because the mechanism is more useful than
+> the instance: see `docs/plans/EDITOR-BOOTSTRAP.md` §9 finding 11 and D41.
+
 
 The `Surface` port takes a frame's work as an opaque sequence and reports back its
 size, scale factor and origin. The presenter decides *what* is uploaded, in what order,

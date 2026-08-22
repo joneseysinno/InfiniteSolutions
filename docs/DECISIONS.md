@@ -1197,3 +1197,148 @@ from cost declarations, and those backends do not exist yet. `accepts`
 refusal is reachable for an unknown native key; a plan of only known keys
 is never silently stuck on interpret for lack of tier 0.
 
+
+## D41 — A status line names the test that could fail · **locked** · 2026-08-22
+
+Every stage table in this repository grows a **`Verified by`** column naming the test
+function, by name, that fails if the stage's claim is false. A stage may not be marked
+`landed` while that cell is empty, or while it names a check that cannot fail for the
+reason the claim would be false.
+
+**What forced it.** Nine stages of `docs/plans/EDITOR-BOOTSTRAP.md` were marked
+`landed`, including the deliverable, and the application had never drawn a pixel.
+`src/facade/ports/surface.rs` ended `let _ = (_format, verts);` and no adapter, device,
+pipeline or render pass existed anywhere in the repository. E3's green check read *"one
+space on screen"* and was satisfied by `tests/agreement.rs`, which asserts that
+`visible(&view)` and `View::embedding()` agree over eighty sample points — pure `f64`
+arithmetic, in which the word *surface* means `SurfaceRect`, a struct of three points.
+`PRESENTER.md` S8 read *"a real wgpu `Surface`"* for four stages while naming exactly
+one `wgpu` type and using none.
+
+R23 already required a claim about rendering or interaction to state its verification
+method, and every stage did state one. **The rule was satisfied and the defect
+survived**, because nothing required the method to be capable of failing. This decision
+is R23's missing second half.
+
+The column is not paperwork. Fill E3's in and the mismatch is legible to anyone reading
+the table: the words say *one space on screen*, and the test named beside them is
+arithmetic. The audit becomes a thing you can see rather than a thing you have to do —
+which matters, because the four green checks that passed here were each reviewed, and
+each read as adequate.
+
+**Rejected alternative:** a reviewer checklist, or a convention that rendering claims
+get extra scrutiny. Rejected because the defect was not that nobody looked. It is that
+looking could not distinguish the two cases, and a checklist does not change that.
+`PRESENTER.md` §11 already holds the sibling discipline for `check-rules.sh` — break
+it, watch it fire, restore it — and this extends it from the rule checks to the stage
+table, which is where it was needed and did not reach.
+
+---
+
+## D42 — The portal owns the device; the facade owns the drawing · **locked** · 2026-08-22
+
+`src/portal/` owns the `wgpu` instance, the adapter, the logical device, the queue and
+the swapchain. `src/facade/ports/surface.rs` owns the pipeline, the buffers, the
+encoder and the render pass, and borrows the device it was attached with. The adapter
+and device are resolved once, in the event loop's `resumed`, never on the tick path.
+
+**What forced it.** D32's table permits `wgpu` in both places, and before E10 the
+device lived in the portal while the only thing that needed a device lived in the
+facade — with **no path between them**. That is why `Device::instance` had no callers.
+The seam had never been drawn because nothing had ever drawn.
+
+The division is D18's: a swapchain is a property of a window, a window is an operating
+system object, and the portal is the seam with the operating system. Drawing is not.
+Same organization/API split as D29, one level further down.
+
+**`scripts/check-rules.sh` settles it, and that is the argument worth keeping.** The
+`f32` check is `find src -name "*.rs" ! -path "src/facade/ports/surface.rs"` — it
+covers the portal too. Under this decision the portal holds a window, a device, a queue
+and a texture view, and never a float; every vertex, every clear colour and the whole
+WGSL shader stay in the one exempt file. A rule check that was written for a different
+reason turns out to encode the answer.
+
+**Also decided here: `Surface::attach` takes no geometry.** `SurfaceRect` is the
+presenter's, `src/portal/` may not name a layer crate (R2), and the geometry already
+has one home in `Store::set_surface` (D43). The renderer is handed it every frame by
+`Store::draw_with`.
+
+**Rejected alternatives.** (a) The facade owns every `wgpu` object and the portal hands
+it a raw window handle — rejected because the facade would name `raw-window-handle` and
+own swapchain resize, which is an OS event arriving on the portal's side; it puts an
+OS-shaped resource behind the wrong seam. (b) Both keep what they have and something
+ferries between them — two owners for one device, which is F-7's shape, and it fires
+the `f32` check the first time the portal touches a colour. (c) An async tick, so the
+device could be requested lazily — rejected by R8 and L1: the runtime owns no thread
+pool and no executor, and D24's whole argument is that the input path never waits.
+
+---
+
+## D43 — The surface's geometry has one home, and `/input/surface` is not it · **locked** · 2026-08-22
+
+`Store::set_surface` is the only place the drawable rectangle is set. The portal calls
+it on `Resized` and on `ScaleFactorChanged`. `portal/input.rs` continues to amend
+`/input/surface` in the pending set, and **nothing reads it**; that address is
+reserved, not live.
+
+**What forced it.** `set_surface` had five callers and all five were tests, so the
+running binary placed every frame against the 800×600 default whatever size the window
+was (`EDITOR-BOOTSTRAP.md` §9 finding 12). The bootstrap plan's §3 promised that every
+OS event becomes an amend at a well-known address that the composition reads as an
+ordinary input, and for the surface that promise was never kept.
+
+**Rejected alternative:** keep the promise — have the tick read `/input/surface` from
+the pending set and apply it, so a composition could react to a resize. Rejected for
+now because nothing needs it, R27 makes an unrequired capability a defect, and building
+both is two write paths for one fact. **The trigger for revisiting is a composition
+that needs to read the surface size**; at that point this decision is superseded rather
+than amended, and `set_surface` becomes the tick's, not the portal's.
+
+**Also decided here: the scale factor is divided out once.** `winit` reports pointer
+positions in device pixels; `SurfaceRect::size` is logical and carries `scale_factor`
+separately. `portal/window.rs` divides, and everything above the portal is logical.
+The multiplication back to device pixels happens in the shader, in the one file allowed
+to hold an `f32`. One narrowing point, one scaling point, both named.
+
+---
+
+## D44 — A style row carries its own name · **locked** · 2026-08-22
+
+`encode_style` takes a name as well as a fill and writes both. The app binds the style
+table's address range with `Store::bind_styles`, and `Store::draw_with` resolves each
+`Placeable`'s opaque style key against that table and hands the facade's `Surface` a
+map from **address** to fill.
+
+**What forced it.** A space record carries a style *key* — the string `"plain"` — and
+the style table is addressed by *address*. Nothing joined the two.
+`editor::styles::bootstrap_default` had exactly one caller, genesis, encoding the row
+it wrote; no draw path ever read a style, so a renderer would have had no colour to use
+(`EDITOR-BOOTSTRAP.md` §9 finding 13).
+
+**`Placed` still carries no style, and that stays true.** `PRESENTER.md` is explicit
+that a colour has no place in a geometry record, and `hyper-ui`'s `SceneNode` is the
+counter-example: no room for selection except `selected: bool` inside the geometry, so
+selecting a thing means re-deriving and re-uploading it. The resolution happens in the
+facade, which already holds the `SceneSet` the placement was built from.
+
+**The facade must not name the editor** (R2: `layer → platform facade → domain facade →
+app`), so the name cannot be resolved by the facade knowing which address `"plain"`
+lives at. Putting the name in the record is what makes the table self-describing, and
+it has a second payoff: a new style becomes a new record rather than a recompile, which
+is the self-hosting claim applied to appearance.
+
+**Rejected alternatives.** (a) Copy `Placeable::style` into `Placed` — contradicts
+`PRESENTER.md` §4 explicitly and needs a decision amending a locked layer. (b) Have the
+facade's `Surface` hold the store and read a style row per placed thing per frame — a
+store read on the draw path, per thing, per frame; F-7's neighbourhood. (c) Have the
+editor hand the facade a resolver closure at `bind` — puts a function where a record
+should be, and it would not survive E4's discard test as data.
+
+**Cost, stated:** the style record's layout changed and there is no migration
+machinery (D34's cost, again). Acceptable only because no data has shipped. The style
+table is read as a `Vec<(String, [f64; 4])>` rather than a map, because L5 forbids a
+map keyed by anything but an address and `check-rules.sh`'s `maps_keyed_by_addr`
+enforces it; the table is a handful of rows and a linear scan is honest where a lookup
+structure would be the letter against the spirit.
+
+---

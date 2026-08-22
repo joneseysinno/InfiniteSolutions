@@ -41,6 +41,10 @@ pub(crate) struct Inner {
     pub plan: Mutex<Option<(Vec<u8>, Vec<u8>, Vec<u8>)>>,
     pub camera: Mutex<Option<Camera>>,
     pub graph_root: Mutex<Option<Vec<u8>>>,
+    /// The authored style table's address range, handed over by the app (D44).
+    pub style_range: Mutex<Option<(Vec<u8>, Vec<u8>)>>,
+    /// The space whose fill is the background (E10.2). Authored, never a constant.
+    pub background: Mutex<Option<Vec<u8>>>,
 }
 
 /// Opens the store at `dir`, registering the editor's 1-D space if needed.
@@ -95,6 +99,8 @@ pub fn open_with_options(dir: impl AsRef<Path>, options: OpenOptions) -> Result<
             plan: Mutex::new(None),
             camera: Mutex::new(None),
             graph_root: Mutex::new(None),
+            style_range: Mutex::new(None),
+            background: Mutex::new(None),
         }),
     };
     store.replay();

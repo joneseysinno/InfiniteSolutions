@@ -17,7 +17,7 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
     let canvas = encode_space(&SpaceRecord {
         across: [1.0, 1.0, 0.0],
         down: [1.0, 1.0, 0.0],
-        style: "plain".into(),
+        style: "canvas".into(),
         detail_override: None,
         hosts_space: true,
         accepts: true,
@@ -32,13 +32,15 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         accepts: true,
         origin: [0.0, 0.0],
     });
-    let style = encode_style(bootstrap_default("plain").fill);
+    let plain = encode_style("plain", bootstrap_default("plain").fill);
+    let canvas_style = encode_style("canvas", bootstrap_default("canvas").fill);
     let behaviour = encode_composition(&behaviour());
 
     put_if(&exists, &mut put, addresses::CANVAS_KEY, &canvas);
     put_if(&exists, &mut put, addresses::NODE_A_KEY, &node);
     put_if(&exists, &mut put, addresses::NODE_B_KEY, &node);
-    put_if(&exists, &mut put, addresses::STYLE_PLAIN_KEY, &style);
+    put_if(&exists, &mut put, addresses::STYLE_PLAIN_KEY, &plain);
+    put_if(&exists, &mut put, addresses::STYLE_CANVAS_KEY, &canvas_style);
     put_if(&exists, &mut put, addresses::BEHAVIOUR_ROOT_KEY, &behaviour);
 }
 

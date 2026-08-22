@@ -59,6 +59,10 @@ path = "tests/wiring.rs"
 name = "tier0"
 path = "tests/tier0.rs"
 
+[[test]]
+name = "pixels"
+path = "tests/pixels.rs"
+
 [workspace]
 resolver = "3"
 members = [
@@ -87,6 +91,10 @@ winit = "0.30.13"
 # wgpu 30's gpu-allocator accepts windows 0.53–0.62. The lockfile must keep
 # a single 0.62 line or DX12 fails to compile (two windows crate majors).
 wgpu = "30"
+# Adapter and device requests are futures. They are awaited exactly twice, both
+# times at window creation (D42) — never on the tick path, which R8 and L1 forbid
+# and `check-rules.sh` greps `portal/drive.rs` for.
+pollster = "0.4"
 
 [dev-dependencies]
 tempfile = "3"

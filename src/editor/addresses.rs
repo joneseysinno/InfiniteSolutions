@@ -47,8 +47,11 @@ pub const STYLE_ROOT_KEY: &[u8] = &[0x20, 0x00, 0x00, 0x00];
 /// Exclusive end of the style range.
 pub const STYLE_END_KEY: &[u8] = &[0x21, 0x00, 0x00, 0x00];
 
-/// The `plain` style row.
+/// The `plain` style row. Nodes.
 pub const STYLE_PLAIN_KEY: &[u8] = &[0x20, 0x00, 0x00, 0x01];
+
+/// The `canvas` style row. The canvas, and therefore the background (E10.2).
+pub const STYLE_CANVAS_KEY: &[u8] = &[0x20, 0x00, 0x00, 0x02];
 
 /// The editor's behaviour composition. Genesis writes this; E5 links it.
 pub const BEHAVIOUR_ROOT_KEY: &[u8] = &[0x30, 0x00, 0x00, 0x00];

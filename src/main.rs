@@ -14,6 +14,6 @@ fn main() {
     let store = infinite_solutions::facade::open(&root).expect("open store");
     infinite_solutions::editor::seed(|k| store.has(k), |k, v| store.put(k, v));
     infinite_solutions::editor::bind(&store);
-    let _device = infinite_solutions::portal::Device::open();
-    infinite_solutions::portal::Window::open(store);
+    let device = infinite_solutions::portal::Device::open();
+    infinite_solutions::portal::Window::open(store, device);
 }

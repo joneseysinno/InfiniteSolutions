@@ -1,7 +1,9 @@
 //! Place, probe, and submit a frame. The portal never names the presenter.
 
-use infinite_presenter::binding::frame;
+use std::collections::BTreeMap;
+
 use infinite_presenter::binding::ports::Scene as ScenePort;
+use infinite_presenter::binding::ports::Surface as SurfacePort;
 use infinite_presenter::core::{place, probe, Camera, Point, Revision, View};
 
 use super::finding::{from_empty_screen, from_precision_floor};
@@ -14,6 +16,10 @@ fn default_camera() -> Camera {
 
 impl Store {
     /// Sets the drawable rectangle. Origin may be non-zero (P1).
+    ///
+    /// **This is the one place the surface's geometry is set** (E10.3, D43). The
+    /// portal calls it on resize and on a scale-factor change; nothing else does, and
+    /// `/input/surface` is not a second path to the same fact.
     pub fn set_surface(&self, origin_x: f64, origin_y: f64, width: f64, height: f64, scale: f64) {
         *self.inner.surface.lock().expect("surface lock") =
             infinite_presenter::core::SurfaceRect::new(
@@ -35,6 +41,36 @@ impl Store {
     /// Binds the graph composition `link` previews while a wire is pending (C4).
     pub fn bind_graph(&self, root: &[u8]) {
         *self.inner.graph_root.lock().expect("graph lock") = Some(root.to_vec());
+    }
+
+    /// Binds the authored style table (D44). The app owns the addresses (D34), so the
+    /// app hands them over, exactly as it does for the plan and the graph.
+    pub fn bind_styles(&self, start: &[u8], end: &[u8]) {
+        *self.inner.style_range.lock().expect("style lock") = Some((start.to_vec(), end.to_vec()));
+    }
+
+    /// Binds the space whose fill is the background (E10.2).
+    ///
+    /// The clear colour is authored, not a constant: edit that space's style row and
+    /// the background changes, which makes the very first pixel drawn a proof of the
+    /// whole chain — store, scene, place, surface, screen.
+    pub fn bind_background(&self, at: &[u8]) {
+        *self.inner.background.lock().expect("background lock") = Some(at.to_vec());
+    }
+
+    /// The authored style table, as name → fill, in address order.
+    ///
+    /// A `Vec` rather than a map keyed by the name: L5 forbids a map keyed by
+    /// anything but an address, the table is a handful of rows, and dodging the rule
+    /// with a lookup structure would be the letter against the spirit.
+    pub fn styles(&self) -> Vec<(String, [f64; 4])> {
+        let Some((start, end)) = self.inner.style_range.lock().expect("style lock").clone() else {
+            return Vec::new();
+        };
+        self.records(&start, &end)
+            .into_iter()
+            .filter_map(|(_, payload)| super::record::decode_style(&payload))
+            .collect()
     }
 
     /// Zooms the canvas to a finding's site (D20 — go-to-error is a zoom).
@@ -66,26 +102,50 @@ impl Store {
         let _ = self.sync();
     }
 
-    /// Places the current scene and submits it. Remembers the placement for probe.
-    pub fn draw(&self) {
+    /// Places the current scene and submits it through `surface`.
+    ///
+    /// **This no longer calls `infinite_presenter::binding::frame`.** That function
+    /// builds its own `SceneSet` and drops it, and D44's fill resolution needs the
+    /// set the placement was built from — so the three steps are taken here, which is
+    /// what `frame` does and what this function already half did. `frame` is left in
+    /// the presenter rather than deleted (R21); that it now has no caller is finding
+    /// 17 and O21.
+    pub fn draw_with(&self, surface: &mut Surface) {
         let geometry = *self.inner.surface.lock().expect("surface lock");
+        surface.set_geometry(geometry);
         let scene = self.scene();
-        let camera = ScenePort::camera(
-            &scene,
-            &crate::facade::presenter_addr(&[0, 0, 0, 1]),
-            Revision::new(self.inner.db.stable_revision().legacy_sequence()),
-        )
-        .unwrap_or_else(|| self.camera());
-        let view = View::new(camera, geometry, 0.0);
         let at = Revision::new(self.inner.db.stable_revision().legacy_sequence());
-        let mut surface = Surface::with_geometry(geometry);
-        frame(&scene, &mut surface, &view, at);
+        let camera = ScenePort::camera(&scene, &crate::facade::presenter_addr(&[0, 0, 0, 1]), at)
+            .unwrap_or_else(|| self.camera());
+        let view = View::new(camera, geometry, 0.0);
         let start = crate::facade::presenter_addr(&[]);
         let end = crate::facade::presenter_addr(&[0xFF, 0xFF, 0xFF, 0xFF]);
         let set = ScenePort::placed_in(&scene, &start, &end, at);
+
+        let styles = self.styles();
+        let mut fills = BTreeMap::new();
+        for item in set.iter() {
+            fills.insert(item.at.clone(), fill_of(&styles, &item.style));
+        }
+        if let Some(background) = self.inner.background.lock().expect("background lock").clone() {
+            let key = crate::facade::presenter_addr(&background);
+            if let Some(fill) = fills.get(&key) {
+                surface.set_clear(*fill);
+            }
+        }
+        surface.set_fills(fills);
+
         let placement = place(&set, &view);
+        SurfacePort::submit(surface, &placement);
         self.record_findings(&placement);
         *self.inner.last_placement.lock().expect("placement lock") = Some(placement);
+    }
+
+    /// Places and submits into a surface with no device. What the pre-E10 tests used.
+    pub fn draw(&self) {
+        let geometry = *self.inner.surface.lock().expect("surface lock");
+        let mut surface = Surface::with_geometry(geometry);
+        self.draw_with(&mut surface);
     }
 
     /// Answers a surface point with an address. No port is named here beyond the
@@ -97,7 +157,10 @@ impl Store {
     }
 
     /// Links the composition at `root`. The editor never names [`link`].
-    pub fn link_at(&self, root: &[u8]) -> infinite_compositor::core::Outcome<infinite_compositor::core::Plan> {
+    pub fn link_at(
+        &self,
+        root: &[u8],
+    ) -> infinite_compositor::core::Outcome<infinite_compositor::core::Plan> {
         use infinite_compositor::binding::ports::Definitions;
         use infinite_compositor::core::link;
         let defs = self.definitions().resolve(&crate::facade::compositor_addr(root));
@@ -136,4 +199,17 @@ impl Store {
         }
         *self.inner.findings.lock().expect("findings lock") = findings;
     }
+}
+
+/// Resolves one style key against the authored table.
+///
+/// An unknown key gets a visible grey rather than nothing, because
+/// `PRESENTER.md` §13 finding 8 is that a failed lookup and an empty screen must
+/// never be indistinguishable.
+fn fill_of(styles: &[(String, [f64; 4])], key: &str) -> [f64; 4] {
+    styles
+        .iter()
+        .find(|(name, _)| name == key)
+        .map(|(_, fill)| *fill)
+        .unwrap_or([0.55, 0.55, 0.55, 1.0])
 }

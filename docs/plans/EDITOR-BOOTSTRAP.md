@@ -22,21 +22,32 @@
 
 ## Stage table
 
-| # | Stage | Status | Green check |
-|---|---|---|---|
-| **E0** | Specifications, root package, module skeleton, rule checks | landed | `cargo build` succeeds; `bash scripts/check-rules.sh` reports a **facade** section and an **editor** section and every check passes, including R18 for all four crate directories |
-| **E1** | The facade seam — thirteen ports over the real store | landed | One space written through the facade is readable through `StoreRead`, `Definitions` **and** `Scene`, and all three agree on its address at the same revision. Every `Addr`/`Revision` conversion is a newtype unwrap, asserted by a test |
-| **E2** | The portal ticks | landed | A window opens and `tick` runs at cadence under a budget. The saturation test (`RUNTIME.md` §7.4) passes against the **real** store, not the fake. Kill the process mid-drag; on restart the journal replays and the pending set is intact |
-| **E3** | One space on screen, and it answers a click | landed | The agreement test (`PRESENTER.md` §6.4) passes against a real surface with a **non-zero origin**. Clicking the space returns its address. The placement passes the runtime's generic discard harness with no per-artifact test code |
-| **E4** | The first screen is authored, not coded | landed | **The genesis discard test.** Delete every space under the editor's screen root; restart: the portal still runs and the canvas is empty with a finding, not a black screen. Re-run genesis: the screen is bit-identical to before the delete |
-| **E5** | It links | landed | The editor's behaviour composition links. The findings corpus yields **exactly one** finding per malformed composition, each carrying a site, a said, a wanted and a remedy. The closure test (`COMPOSITOR.md` §7.3) passes |
-| **E6** | It runs | landed | Dragging a space moves it, and the move is performed by the **interpreted composition**, not by Rust in the portal. Provenance recovers the exact declared input set; the store's staleness query returns exactly the downstream address set — no more, no fewer |
-| **E7** | It edits itself | landed | Drag a node **belonging to the editor's own screen** while the editor is running. The change persists. Restart. It is still there. Nothing was recompiled |
-| **E8** | Wiring, and the finding surface | landed | A wire is drawn and `link` answers **before** it is committed (C4). A tag mismatch renders said / wanted / remedy, and the canvas zooms to the site |
-| **E9** | Compilation, tier 0 | landed | The equivalence harness runs over a corpus drawn from the editor's own plans; tier 0 registers **by passing it**, with no per-backend test code |
+| # | Stage | Status | Verified by | Green check |
+|---|---|---|---|---|
+| **E0** | Specifications, root package, module skeleton, rule checks | landed | `scripts/check-rules.sh` | `cargo build` succeeds; `bash scripts/check-rules.sh` reports a **facade** section and an **editor** section and every check passes, including R18 for all four crate directories |
+| **E1** | The facade seam — thirteen ports over the real store | landed | `tests/seam.rs` | One space written through the facade is readable through `StoreRead`, `Definitions` **and** `Scene`, and all three agree on its address at the same revision. Every `Addr`/`Revision` conversion is a newtype unwrap, asserted by a test |
+| **E2** | The portal ticks | landed | `tests/saturation.rs` | A window opens and `tick` runs at cadence under a budget. The saturation test (`RUNTIME.md` §7.4) passes against the **real** store, not the fake. Kill the process mid-drag; on restart the journal replays and the pending set is intact |
+| **E3** | One space on screen, and it answers a click | landed — **arithmetic only until E10.4**; finding 11 | `tests/agreement.rs` + `tests/pixels.rs` | The agreement test (`PRESENTER.md` §6.4) passes against a real surface with a **non-zero origin**. Clicking the space returns its address. The placement passes the runtime's generic discard harness with no per-artifact test code |
+| **E4** | The first screen is authored, not coded | landed | `tests/genesis.rs` | **The genesis discard test.** Delete every space under the editor's screen root; restart: the portal still runs and the canvas is empty with a finding, not a black screen. Re-run genesis: the screen is bit-identical to before the delete |
+| **E5** | It links | landed | `tests/link.rs` | The editor's behaviour composition links. The findings corpus yields **exactly one** finding per malformed composition, each carrying a site, a said, a wanted and a remedy. The closure test (`COMPOSITOR.md` §7.3) passes |
+| **E6** | It runs | landed | `tests/behaviour.rs` | Dragging a space moves it, and the move is performed by the **interpreted composition**, not by Rust in the portal. Provenance recovers the exact declared input set; the store's staleness query returns exactly the downstream address set — no more, no fewer |
+| **E7** | It edits itself | landed | `tests/self_edit.rs` | Drag a node **belonging to the editor's own screen** while the editor is running. The change persists. Restart. It is still there. Nothing was recompiled |
+| **E8** | Wiring, and the finding surface | landed | `tests/wiring.rs` | A wire is drawn and `link` answers **before** it is committed (C4). A tag mismatch renders said / wanted / remedy, and the canvas zooms to the site |
+| **E9** | Compilation, tier 0 | landed | `tests/tier0.rs` | The equivalence harness runs over a corpus drawn from the editor's own plans; tier 0 registers **by passing it**, with no per-backend test code |
 
 **E7 is the deliverable.** E0 through E6 exist to make it possible and E8/E9 to make it
 usable. If a stage can be cut, cut it from the E8 end.
+
+**The `Verified by` column is new, and it is why finding 11 was possible** (D41). A
+stage may not be marked `landed` while that cell is empty or names a test that cannot
+fail for the reason the claim would be false. Read E3's row with the column filled in
+and the mismatch is visible without anyone auditing anything: the words say *one space
+on screen* and the test named beside them is eighty samples of `f64` arithmetic.
+
+**Successor plan:** [`E10-IT-DRAWS.md`](./E10-IT-DRAWS.md). E10 exists because this
+plan reached E9 without ever drawing a pixel. R21 — this document is not edited to
+pretend otherwise; it carries the findings and the corrected status, and the successor
+carries the work.
 
 ---
 
@@ -934,6 +945,60 @@ that is never re-read becomes a document describing a repository that no longer 
     measurement the way `hyper-ui` invented `char_w = font_size * 0.55`. The port
     still returns a declared box. Real shaping waits for a style that names a font
     (E4). Recorded rather than guessed.
+
+11. **Nothing had ever drawn a pixel, through nine landed stages.**
+    `src/facade/ports/surface.rs` computed the frame's quads correctly and ended
+    `let _ = (_format, verts);`. There was no adapter, device, queue, swapchain,
+    shader, pipeline, encoder, render pass or present anywhere in the repository, and
+    `portal::Device::instance` had no callers — `main.rs` bound the device to
+    `_device` and handed the window a `Store` instead. **Two status lines were
+    therefore false**: this plan's E3, and `PRESENTER.md` S8's *"a real wgpu
+    `Surface`"*. Both are corrected in the change that lands E10.0, and D41 records
+    the mechanism rather than the instance. Fixed in E10.2 and E10.4.
+12. **The window's geometry never reached the presenter.** `Store::set_surface` had
+    five callers and all five were tests; `portal/input.rs::on_resize` amended
+    `/input/surface` and nothing read that address. The running binary placed every
+    frame against the 800×600 default installed by `facade::open`, whatever size the
+    window was. Fixed in E10.3 (D43): the portal calls `set_surface` on `Resized` and
+    on `ScaleFactorChanged`, and `/input/surface` is not a second path to the same
+    fact.
+13. **`Placed` carried no style and nothing resolved one.** `PRESENTER.md` is right
+    that it should not; `Placeable` carries the key. But `place` dropped it, `frame`
+    built the `SceneSet` internally and dropped that too, and
+    `editor::styles::bootstrap_default` had one caller — genesis, encoding the row it
+    wrote. Fixed in E10.4 (D44): style rows carry their own name, the app binds the
+    table's range, and `Store::draw_with` resolves address → fill from the set the
+    placement was built from.
+14. **Two of the six interactions in §1 do not exist.** No `MouseWheel` arm, no pan
+    gesture, and the camera is `default_camera()` except inside `zoom_to`. Zoom is
+    *the primary navigation* (D20) and the argument for why any of this scales.
+    **Still open** — E10.5, not attempted in the E10.0–E10.4 batch.
+15. **The portal's coordinate spaces were unreconciled.** `CursorMoved` delivers
+    device pixels; `SurfaceRect::size` is logical and carries `scale_factor`
+    separately; `probe_at` took the raw values. Correct at scale 1.0, wrong on the
+    first HiDPI display. Fixed in E10.3: the division happens once, in
+    `portal/window.rs`, and everything above the portal is logical.
+16. **`Placement` cannot express the grouping the presenter is said to own.** D15 and
+    D29 both give this layer *"what is uploaded, in what order, at what detail,
+    grouped how"*, and `Placement` is a flat `Vec<Placed>`. With one quad pipeline the
+    gap is invisible. E8's wires are lines and a label is a text run. **Open — O20.**
+17. **`infinite_presenter::binding::frame` now has no caller.** `Store::draw_with`
+    takes the three steps itself, because D44's fill resolution needs the `SceneSet`
+    the placement was built from and `frame` builds its own and drops it. The function
+    is four lines and is left in place rather than deleted (R21). A binding function
+    nobody calls is R27's defect. **Open — O21.**
+18. **There is no authored position, so the drag is invisible and two nodes are one.**
+    `SpaceRecord` carries an `origin`, `editor::blocks::displace` writes it, and
+    `Scene::placed_in` decodes it and **throws it away** — `Placeable` has no field
+    for it. Every space is positioned by `place_group`'s stacking, so genesis's two
+    nodes are drawn at exactly the same rectangle, and E7's *"drag a node and it
+    moves"* is true in the store and false on screen. This is not an oversight in the
+    binding: **the presenter has no notion of an authored position at all**, and a
+    canvas whose whole purpose is that a person puts things where they want them
+    cannot be expressed without one. Raised rather than patched, because `Placeable`
+    is a locked layer's core type and R29 says a change of that shape is corrected,
+    not merged. **Blocks E10.4's "the gap between A and B is background" and all of
+    E7's visible claim. O22, and it wants a decision record before code.**
 
 ---
 
