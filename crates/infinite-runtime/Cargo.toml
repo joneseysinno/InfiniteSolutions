@@ -1,0 +1,45 @@
+[package]
+name = "infinite-runtime"
+version = "0.0.0"
+description = "The runtime layer: motion in time. Scheduling, cadence, staleness, pending state."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# `tests/fake_store.rs` is a shared helper, not a test target. Declaring the test
+# targets explicitly keeps it from being built as one — and avoids `tests/common/mod.rs`,
+# which is the conventional Rust answer and is forbidden by F-8.
+autotests = false
+
+[[test]]
+name = "discard"
+path = "tests/discard.rs"
+
+[[test]]
+name = "saturation"
+path = "tests/saturation.rs"
+
+[features]
+# Default is the strict build. R3's check is `cargo build -p infinite-runtime` with no
+# features: the pure core must compile alone. Inverted from `bion`'s
+# `--no-default-features` so that the strict build is the one you get by accident.
+default = []
+
+# The binding — the part that knows a graph exists (D7). Ports, artifact registry,
+# driver.
+binding = []
+
+[dependencies]
+# INTENTIONALLY EMPTY, and checked.
+#
+#   R3  — the pure core depends on nothing.
+#   R8  — no executor, no async runtime. The runtime owns no thread pool.
+#   R9  — no persistence crate. The runtime owns no storage.
+#   D23 — the runtime names no crate belonging to another layer; it declares ports.
+#
+# A dependency added here needs a decision record.
+
+[dev-dependencies]
+# Also empty. The test suite runs against `tests/fake_store.rs`, which is the only
+# store this layer ever names (D23).

@@ -1,0 +1,96 @@
+//! Transport contract for pushing local writes to a remote server.
+
+use bincode::{Decode, Encode};
+use crate::infinitedb_core::address::{Address, RevisionId};
+use crate::infinitedb_core::branch::BranchId;
+use crate::infinitedb_core::hyperedge::{Hyperedge, HyperedgeId};
+use crate::infinitedb_core::signal::SignalSample;
+use crate::infinitedb_core::address::SpaceId;
+
+/// Logical operation that should be replicated to a remote node.
+#[derive(Debug, Clone, Encode, Decode)]
+pub enum SyncOperation {
+    /// Insert/update payload at an address revision.
+    Write {
+        address: Address,
+        revision: RevisionId,
+        data: Vec<u8>,
+    },
+    /// Logical delete at an address revision.
+    Tombstone {
+        address: Address,
+        revision: RevisionId,
+    },
+    /// Typed hyperedge upsert operation.
+    WriteHyperedge {
+        space: SpaceId,
+        edge: Hyperedge,
+        revision: RevisionId,
+    },
+    /// Typed hyperedge delete operation.
+    DeleteHyperedge {
+        space: SpaceId,
+        edge_id: HyperedgeId,
+        revision: RevisionId,
+    },
+    /// Typed signal upsert operation.
+    WriteSignal {
+        space: SpaceId,
+        sample: SignalSample,
+        revision: RevisionId,
+    },
+}
+
+/// One outbox operation sent over transport with stable ID.
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct SyncEnvelope {
+    pub op_id: u64,
+    /// Target branch on the remote node (default `main`).
+    pub branch_id: BranchId,
+    /// Hilbert shard id when known (format v4).
+    pub shard_id: Option<u32>,
+    pub op: SyncOperation,
+}
+
+impl SyncEnvelope {
+    pub fn new(op_id: u64, op: SyncOperation) -> Self {
+        Self {
+            op_id,
+            branch_id: BranchId::MAIN,
+            shard_id: None,
+            op,
+        }
+    }
+}
+
+/// Result of attempting to apply one operation on the remote side.
+#[derive(Debug, Clone, Encode, Decode)]
+pub enum SyncResult {
+    /// Operation applied successfully and can be removed from the outbox.
+    Ack { op_id: u64 },
+    /// Temporary failure; retry later.
+    Retry { op_id: u64, error: String },
+    /// Conflict resolved as stale by last-write-wins semantics; drop locally.
+    ConflictStale { op_id: u64, reason: String },
+}
+
+/// Host-provided transport for remote replication.
+pub trait SyncTransport: Send + Sync {
+    /// Push a batch of operations and return a per-operation result.
+    fn push_batch(&self, batch: &[SyncEnvelope]) -> Result<Vec<SyncResult>, String>;
+}
+
+/// Default no-op transport. Useful for embedded-only users.
+pub struct NoopSyncTransport;
+
+impl SyncTransport for NoopSyncTransport {
+    fn push_batch(&self, batch: &[SyncEnvelope]) -> Result<Vec<SyncResult>, String> {
+        Ok(batch
+            .iter()
+            .map(|item| SyncResult::Retry {
+                op_id: item.op_id,
+                error: "NoopSyncTransport does not send writes".to_string(),
+            })
+            .collect())
+    }
+}

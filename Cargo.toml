@@ -1,0 +1,92 @@
+# Infinite Solutions — workspace root, and now also a package.
+#
+# R1 says Infinite Solutions is a platform, not an application, and this root builds a
+# binary. See D32: the binary is the *portal* — the platform's boundary with the
+# operating system (D18) — plus the platform facade (D10) and the editor that is the
+# forcing consumer named in all three layer specifications (O11). It is not "an app"
+# in D12's sense; D12 defers SES, Coach Assistant and the structural work, and this
+# defers all three still.
+
+[package]
+name = "infinite-solutions"
+version = "0.0.0"
+description = "The platform facade, the OS portal, and the editor."
+edition.workspace = true
+# infinite-db (D1, D32) declares 1.85. The three layer crates stay on the
+# workspace MSRV; this package is the one that path-depends on the store.
+rust-version = "1.94"
+license.workspace = true
+publish.workspace = true
+
+# Integration tests are named by the bootstrap stage they belong to. Declaring them
+# explicitly avoids `tests/common/mod.rs`, which is the conventional Rust answer and
+# is forbidden by F-8 — the same situation the three layer crates already hold.
+autotests = false
+
+[[test]]
+name = "seam"
+path = "tests/seam.rs"
+
+[[test]]
+name = "saturation"
+path = "tests/saturation.rs"
+
+[[test]]
+name = "agreement"
+path = "tests/agreement.rs"
+
+[[test]]
+name = "genesis"
+path = "tests/genesis.rs"
+
+[[test]]
+name = "link"
+path = "tests/link.rs"
+
+[[test]]
+name = "behaviour"
+path = "tests/behaviour.rs"
+
+[[test]]
+name = "self_edit"
+path = "tests/self_edit.rs"
+
+[[test]]
+name = "wiring"
+path = "tests/wiring.rs"
+
+[[test]]
+name = "tier0"
+path = "tests/tier0.rs"
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/infinite-runtime",
+    "crates/infinite-compositor",
+    "crates/infinite-presenter",
+    "crates/infinite-db",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.94"
+license = "MIT"
+publish = false
+
+[dependencies]
+# The facade names the layer crates. The editor and the portal do not (D32, R2).
+#
+# infinite-db is the vendored copy (D32). Switch to the published 0.4.x crate when
+# the facade needs no store change for two consecutive stages.
+infinite-runtime = { path = "crates/infinite-runtime", features = ["binding"] }
+infinite-compositor = { path = "crates/infinite-compositor", features = ["binding"] }
+infinite-presenter = { path = "crates/infinite-presenter", features = ["binding"] }
+infinite-db = { path = "crates/infinite-db" }
+winit = "0.30.13"
+# wgpu 30's gpu-allocator accepts windows 0.53–0.62. The lockfile must keep
+# a single 0.62 line or DX12 fails to compile (two windows crate majors).
+wgpu = "30"
+
+[dev-dependencies]
+tempfile = "3"

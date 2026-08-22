@@ -1,0 +1,54 @@
+[package]
+name = "infinite-presenter"
+version = "0.0.0"
+description = "The presenter layer: the embedding. Address to screen, screen to address, culling, level of detail."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# `tests/fakes.rs` is a shared helper, not a test target — the same situation
+# `infinite-runtime` has with `tests/fake_store.rs` and `infinite-compositor` with
+# `tests/fakes.rs`. Declaring the test targets explicitly keeps it from being built as
+# one, and avoids `tests/common/mod.rs`, which is the conventional Rust answer and is
+# forbidden by F-8.
+autotests = false
+
+[[test]]
+name = "agreement"
+path = "tests/agreement.rs"
+
+[[test]]
+name = "hysteresis"
+path = "tests/hysteresis.rs"
+
+[[test]]
+name = "probe"
+path = "tests/probe.rs"
+
+[features]
+# Default is the strict build. R3's check is `cargo build -p infinite-presenter` with
+# no features: the pure core must compile alone. Inverted from `bion`'s
+# `--no-default-features` so that the strict build is the one you get by accident.
+default = []
+
+# The binding — the part that knows a graph exists (D7). Ports and the frame path.
+binding = []
+
+[dependencies]
+# INTENTIONALLY EMPTY, and checked.
+#
+#   R3  — the pure core depends on nothing.
+#   D29 — the presenter names no crate belonging to another layer, and **no graphics
+#         crate**. There is no wgpu, no winit, no glyphon, no raw-window-handle here.
+#         D15 gives this layer wgpu *resource organization*; the facade owns the API,
+#         and the `Surface` port is the seam. A GPU in this manifest would make the
+#         embedding untestable, which is the one failure the corpus has already paid
+#         for: `hyper-ui` has 24 tests in the files read for the specification and
+#         **zero** of them are in `renderer/`.
+#
+# A dependency added here needs a decision record.
+
+[dev-dependencies]
+# Also empty. The test suite runs against `tests/fakes.rs`, which holds the only
+# implementations of the ports this layer ever names (D29).

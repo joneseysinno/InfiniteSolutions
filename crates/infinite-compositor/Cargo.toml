@@ -1,0 +1,60 @@
+[package]
+name = "infinite-compositor"
+version = "0.0.0"
+description = "The compositor layer: the static structure of a program. Blocks, ports, wiring, link-time validation, compilation."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# `tests/fakes.rs` is a shared helper, not a test target — the same situation
+# `infinite-runtime` has with `tests/fake_store.rs`. Declaring the test targets
+# explicitly keeps it from being built as one, and avoids `tests/common/mod.rs`, which
+# is the conventional Rust answer and is forbidden by F-8.
+autotests = false
+
+[[test]]
+name = "findings"
+path = "tests/findings.rs"
+
+[[test]]
+name = "closure"
+path = "tests/closure.rs"
+
+[[test]]
+name = "equivalence"
+path = "tests/equivalence.rs"
+required-features = ["binding"]
+
+[[test]]
+name = "ports"
+path = "tests/ports.rs"
+required-features = ["binding"]
+
+[[test]]
+name = "interpret"
+path = "tests/interpret.rs"
+required-features = ["binding"]
+
+[features]
+# Default is the strict build. R3's check is `cargo build -p infinite-compositor` with
+# no features: the pure core must compile alone. Inverted from `bion`'s
+# `--no-default-features` so that the strict build is the one you get by accident.
+default = []
+
+# The binding — the part that knows a graph exists (D7). Ports, backend contract,
+# registries, interpreted execution.
+binding = []
+
+[dependencies]
+# INTENTIONALLY EMPTY, and checked.
+#
+#   R3  — the pure core depends on nothing.
+#   R31 — the compositor contains no math. No numerical or domain crate belongs here.
+#   D26 — the compositor names no crate belonging to another layer; it declares ports.
+#
+# A dependency added here needs a decision record.
+
+[dev-dependencies]
+# Also empty. The test suite runs against `tests/fakes.rs`, which holds the only
+# implementations of the ports this layer ever names (D26).

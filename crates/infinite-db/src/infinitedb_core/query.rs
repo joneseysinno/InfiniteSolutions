@@ -1,0 +1,130 @@
+use serde::{Deserialize, Serialize};
+use super::address::{DimensionVector, RevisionId, SpaceId};
+use super::hyperedge::EndpointPolarity;
+use super::snapshot::SnapshotId;
+
+/// An axis-aligned bounding box in N-dimensional space.
+/// Records whose point lies within [min, max] on every axis are included.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpatialRange {
+    pub min: DimensionVector,
+    pub max: DimensionVector,
+}
+
+impl SpatialRange {
+    /// Create an axis-aligned range with inclusive bounds.
+    pub fn new(min: DimensionVector, max: DimensionVector) -> Self {
+        assert_eq!(min.dims(), max.dims(), "Range bounds must have equal dimensions");
+        Self { min, max }
+    }
+}
+
+/// Read-side options for derived-index queries (M4).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct QueryOptions {
+    /// When true, skip delta-merge over un-derived assertions (bounded staleness).
+    pub index_only: bool,
+}
+
+impl Default for QueryOptions {
+    fn default() -> Self {
+        Self { index_only: false }
+    }
+}
+
+impl QueryOptions {
+    pub fn index_only() -> Self {
+        Self { index_only: true }
+    }
+}
+
+/// A read query against a snapshot.
+/// Queries are pure descriptors — the storage layer executes them.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Query {
+    pub space: SpaceId,
+    pub snapshot: SnapshotId,
+    /// Spatial bounds to filter records by. None = all records in the space.
+    pub range: Option<SpatialRange>,
+    /// Precomputed Hilbert key interval [min, max] for block pruning.
+    /// Takes precedence over `range` when set; None falls back to `range`.
+    pub key_range: Option<(u128, u128)>,
+    /// Only return records at or before this revision.
+    /// Defaults to the snapshot's own revision when None.
+    pub as_of: Option<RevisionId>,
+    /// Include tombstoned (deleted) records in results.
+    pub include_tombstones: bool,
+}
+
+impl Query {
+    /// Build a query pinned to a specific space and snapshot.
+    pub fn new(space: SpaceId, snapshot: SnapshotId) -> Self {
+        Self {
+            space,
+            snapshot,
+            range: None,
+            key_range: None,
+            as_of: None,
+            include_tombstones: false,
+        }
+    }
+
+    /// Add a spatial range filter.
+    pub fn with_range(mut self, range: SpatialRange) -> Self {
+        self.range = Some(range);
+        self
+    }
+
+    /// Set a precomputed Hilbert key interval, taking precedence over `range`.
+    pub fn with_key_range(mut self, lo: u128, hi: u128) -> Self {
+        self.key_range = Some((lo, hi));
+        self
+    }
+
+    /// Restrict results to records at or before `revision`.
+    pub fn as_of(mut self, revision: RevisionId) -> Self {
+        self.as_of = Some(revision);
+        self
+    }
+
+    /// Include tombstoned records in query results.
+    pub fn include_tombstones(mut self) -> Self {
+        self.include_tombstones = true;
+        self
+    }
+
+    /// Convenience helper to set range bounds from raw coordinate vectors.
+    pub fn with_bounds(self, min: Vec<u32>, max: Vec<u32>) -> Self {
+        self.with_range(SpatialRange::new(
+            DimensionVector::new(min),
+            DimensionVector::new(max),
+        ))
+    }
+}
+
+/// Direction filter for incidence queries.
+///
+/// With M2 endpoint-index layout (`V2PolarityDim`), direction is pinned in the
+/// index coordinate range. V1-layout rows still post-filter until lazy rewrite.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum DirectionFilter {
+    #[default]
+    Any,
+    /// Endpoint appears as head.
+    Incoming,
+    /// Endpoint appears as tail.
+    Outgoing,
+    /// Endpoint appears as neutral only.
+    NeutralOnly,
+}
+
+impl DirectionFilter {
+    pub fn matches(self, polarity: EndpointPolarity) -> bool {
+        match self {
+            DirectionFilter::Any => true,
+            DirectionFilter::Incoming => polarity == EndpointPolarity::Head,
+            DirectionFilter::Outgoing => polarity == EndpointPolarity::Tail,
+            DirectionFilter::NeutralOnly => polarity == EndpointPolarity::Neutral,
+        }
+    }
+}
