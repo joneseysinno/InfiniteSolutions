@@ -81,13 +81,14 @@ impl SceneSet {
 #[cfg(test)]
 mod tests {
     use super::SceneSet;
-    use crate::core::{Addr, Extent, Placeable, Revision};
+    use crate::core::{Addr, Extent, Placeable, Point, Revision};
 
     fn thing(bytes: Vec<u8>) -> Placeable {
         Placeable {
             at: Addr::new(bytes),
             across: Extent::fixed(10.0),
             down: Extent::fixed(10.0),
+            position: Point::ORIGIN,
             style: "plain".into(),
             detail_override: None,
             hosts_space: false,

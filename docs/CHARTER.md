@@ -1,7 +1,8 @@
 # Infinite Solutions — Charter
 
 > Draft 1, 2026-08-20. The shortest true statement of what this is.
-> Rules: [`RULES.md`](./RULES.md) · Decision record: [`DECISIONS.md`](./DECISIONS.md)
+> Rules: [`RULES.md`](./RULES.md) · Decision record: [`DECISIONS.md`](./DECISIONS.md) ·
+> Current status: [`STATUS.md`](./STATUS.md)
 
 ---
 

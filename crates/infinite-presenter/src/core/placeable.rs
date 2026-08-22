@@ -2,6 +2,7 @@
 
 use crate::core::addr::Addr;
 use crate::core::extent::Extent;
+use crate::core::point::Point;
 
 /// One thing the presenter could place.
 ///
@@ -18,6 +19,8 @@ pub struct Placeable {
     pub across: Extent,
     /// How much room it wants down.
     pub down: Extent,
+    /// Authored position in the containing space.
+    pub position: Point,
     /// An opaque key naming how it should look.
     ///
     /// Opaque in the sense D13 makes a tag opaque: the presenter carries it to the

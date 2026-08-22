@@ -38,6 +38,22 @@ impl Store {
             .unwrap_or_else(default_camera)
     }
 
+    /// Moves the session camera by a logical surface delta.
+    pub fn pan_by(&self, delta_x: f64, delta_y: f64) {
+        let current = self.camera();
+        let zoom = current.zoom.max(f64::MIN_POSITIVE);
+        let centre = current.centre.sub(Point::new(delta_x / zoom, delta_y / zoom));
+        *self.inner.camera.lock().expect("camera lock") = Some(Camera::new(centre, zoom));
+    }
+
+    /// Changes the session camera magnification while keeping it in a usable range.
+    pub fn zoom_by(&self, steps: f64) {
+        let current = self.camera();
+        let zoom = (current.zoom * 1.1_f64.powf(steps)).clamp(1.0, 1.0e9);
+        *self.inner.camera.lock().expect("camera lock") =
+            Some(Camera::new(current.centre, zoom));
+    }
+
     /// Binds the graph composition `link` previews while a wire is pending (C4).
     pub fn bind_graph(&self, root: &[u8]) {
         *self.inner.graph_root.lock().expect("graph lock") = Some(root.to_vec());
@@ -212,4 +228,21 @@ fn fill_of(styles: &[(String, [f64; 4])], key: &str) -> [f64; 4] {
         .find(|(name, _)| name == key)
         .map(|(_, fill)| *fill)
         .unwrap_or([0.55, 0.55, 0.55, 1.0])
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::facade;
+    use infinite_presenter::core::Point;
+
+    #[test]
+    fn session_camera_pan_and_zoom_are_stable() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = facade::open(dir.path()).expect("open");
+        store.pan_by(40.0, 20.0);
+        let camera = store.camera();
+        assert_eq!(camera.centre, Point::new(0.4, 0.45));
+        store.zoom_by(1.0);
+        assert!((store.camera().zoom - 440.0).abs() < 1e-12);
+    }
 }

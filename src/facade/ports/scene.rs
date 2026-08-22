@@ -40,7 +40,7 @@ impl Port for Scene {
         }
         let mut set = SceneSet::new(at);
         for (bytes, payload) in rows {
-            let (across, down, style, detail_override, hosts_space, accepts) =
+            let (across, down, style, detail_override, hosts_space, accepts, position) =
                 if let Some(r) = crate::facade::record::decode_space(&payload) {
                     (
                         infinite_presenter::core::Extent::new(r.across[0], r.across[1], r.across[2]),
@@ -49,6 +49,7 @@ impl Port for Scene {
                         r.detail_override,
                         r.hosts_space,
                         r.accepts,
+                        infinite_presenter::core::Point::new(r.origin[0], r.origin[1]),
                     )
                 } else if payload == b"space" {
                     (
@@ -58,6 +59,7 @@ impl Port for Scene {
                         None,
                         false,
                         true,
+                        infinite_presenter::core::Point::ORIGIN,
                     )
                 } else {
                     continue;
@@ -70,6 +72,7 @@ impl Port for Scene {
                 detail_override,
                 hosts_space,
                 accepts,
+                position,
             });
         }
         set

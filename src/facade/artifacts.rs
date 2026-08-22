@@ -48,6 +48,7 @@ pub fn register(registry: &mut ArtifactRegistry, view: View) {
                 at: presenter_addr(addr.as_bytes()),
                 across: infinite_presenter::core::Extent::fixed(1.0),
                 down: infinite_presenter::core::Extent::fixed(1.0),
+                position: infinite_presenter::core::Point::ORIGIN,
                 style: "plain".into(),
                 detail_override: None,
                 hosts_space: false,

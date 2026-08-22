@@ -31,6 +31,7 @@ const CANVAS: [u8; 3] = [31, 33, 41];
 /// The default camera puts root-space (0,0) at surface (200,100) at zoom 400, so
 /// the canvas covers (200,100)..(600,500) and a node covers (200,100)..(360,260).
 const IN_NODE: (u32, u32) = (250, 150);
+const IN_NODE_B: (u32, u32) = (450, 150);
 const IN_CANVAS_ONLY: (u32, u32) = (500, 400);
 
 fn near(got: [u8; 4], want: [u8; 3], what: &str) {
@@ -82,6 +83,9 @@ fn the_authored_screen_reaches_the_framebuffer() {
     let node = Surface::pixel(&pixels, WIDTH, IN_NODE.0, IN_NODE.1);
     near(node, PLAIN, "a node is the fill on its authored style row");
 
+    let node_b = Surface::pixel(&pixels, WIDTH, IN_NODE_B.0, IN_NODE_B.1);
+    near(node_b, PLAIN, "the second node keeps its authored position");
+
     let canvas = Surface::pixel(&pixels, WIDTH, IN_CANVAS_ONLY.0, IN_CANVAS_ONLY.1);
     near(canvas, CANVAS, "the canvas is the fill on its own style row");
 
@@ -89,6 +93,7 @@ fn the_authored_screen_reaches_the_framebuffer() {
         node, canvas,
         "two style rows must not resolve to one colour, or the test proves nothing"
     );
+    assert_eq!(node, node_b, "both nodes use the authored plain style");
 }
 
 #[test]

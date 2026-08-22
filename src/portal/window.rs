@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, MouseButton, WindowEvent};
+use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
 use winit::window::{Window as OsWindow, WindowId};
@@ -35,6 +35,8 @@ struct App {
     device: Device,
     window: Option<Arc<OsWindow>>,
     swapchain: Option<Swapchain>,
+    last_cursor: Option<(f64, f64)>,
+    panning: bool,
 }
 
 impl Window {
@@ -48,6 +50,8 @@ impl Window {
             device,
             window: None,
             swapchain: None,
+            last_cursor: None,
+            panning: false,
         };
         event_loop.run_app(&mut app).expect("event loop run");
     }
@@ -70,8 +74,16 @@ impl ApplicationHandler for App {
                 // Finding 15: winit reports device pixels; everything above the
                 // portal is logical. Divide once, here, and the two never disagree.
                 let scale = self.scale();
+                let logical = (position.x / scale, position.y / scale);
+                if self.panning {
+                    if let Some(previous) = self.last_cursor {
+                        self.store
+                            .pan_by(logical.0 - previous.0, logical.1 - previous.1);
+                    }
+                }
+                self.last_cursor = Some(logical);
                 self.input
-                    .on_pointer_move(&self.store, position.x / scale, position.y / scale);
+                    .on_pointer_move(&self.store, logical.0, logical.1);
                 self.redraw();
             }
             WindowEvent::MouseInput { state, button, .. } => {
@@ -82,7 +94,18 @@ impl ApplicationHandler for App {
                     _ => 0,
                 };
                 let flags = if state == ElementState::Pressed { bit } else { 0 };
+                if button == MouseButton::Middle {
+                    self.panning = state == ElementState::Pressed;
+                }
                 self.input.on_pointer_button(&self.store, flags);
+                self.redraw();
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let steps = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => f64::from(y),
+                    MouseScrollDelta::PixelDelta(p) => p.y / 40.0,
+                };
+                self.store.zoom_by(steps);
                 self.redraw();
             }
             WindowEvent::KeyboardInput { event, .. } => {

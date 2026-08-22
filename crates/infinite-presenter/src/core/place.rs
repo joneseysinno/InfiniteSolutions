@@ -66,9 +66,15 @@ fn place_group(
     for (i, item) in items.iter().enumerate() {
         let w = widths[i].max(1e-12);
         let h = item.down.ideal.max(item.down.min).max(1e-12);
-        let origin_x = if stack_at_origin { 0.0 } else { x };
-        let local = Rect::new(Point::new(origin_x, 0.0), Point::new(origin_x + w, h));
-        let local_to_parent = Transform::new(1.0, Point::new(origin_x, 0.0));
+        let position = if stack_at_origin {
+            item.position
+        } else if item.position == Point::ORIGIN {
+            Point::new(x, 0.0)
+        } else {
+            item.position
+        };
+        let local = Rect::new(position, Point::new(position.x + w, position.y + h));
+        let local_to_parent = Transform::new(1.0, position);
         let local_to_surface = local_to_parent.then(&parent_to_surface);
         let rect = parent_to_surface.apply_rect(&local);
         let showing = match &clip {

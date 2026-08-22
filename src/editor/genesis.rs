@@ -32,13 +32,22 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         accepts: true,
         origin: [0.0, 0.0],
     });
+    let node_b = encode_space(&SpaceRecord {
+        across: [0.4, 0.4, 0.0],
+        down: [0.4, 0.4, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: true,
+        origin: [0.5, 0.0],
+    });
     let plain = encode_style("plain", bootstrap_default("plain").fill);
     let canvas_style = encode_style("canvas", bootstrap_default("canvas").fill);
     let behaviour = encode_composition(&behaviour());
 
     put_if(&exists, &mut put, addresses::CANVAS_KEY, &canvas);
     put_if(&exists, &mut put, addresses::NODE_A_KEY, &node);
-    put_if(&exists, &mut put, addresses::NODE_B_KEY, &node);
+    put_if(&exists, &mut put, addresses::NODE_B_KEY, &node_b);
     put_if(&exists, &mut put, addresses::STYLE_PLAIN_KEY, &plain);
     put_if(&exists, &mut put, addresses::STYLE_CANVAS_KEY, &canvas_style);
     put_if(&exists, &mut put, addresses::BEHAVIOUR_ROOT_KEY, &behaviour);
