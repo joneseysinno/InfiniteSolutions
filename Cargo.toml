@@ -63,6 +63,10 @@ path = "tests/tier0.rs"
 name = "pixels"
 path = "tests/pixels.rs"
 
+[[test]]
+name = "camera"
+path = "tests/camera.rs"
+
 [workspace]
 resolver = "3"
 members = [

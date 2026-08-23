@@ -14,6 +14,12 @@ fn default_camera() -> Camera {
     Camera::new(Point::new(0.5, 0.5), 400.0)
 }
 
+/// Well-known key matches `editor::addresses::CAMERA_KEY` (D34); the literal bytes
+/// appear here rather than a cross-layer import, matching the `SCREEN_ROOT_KEY`
+/// precedent in `record_findings` below (R2).
+const CAMERA_START: &[u8] = &[0x50, 0x00, 0x00, 0x01];
+const CAMERA_END: &[u8] = &[0x50, 0x00, 0x00, 0x02];
+
 impl Store {
     /// Sets the drawable rectangle. Origin may be non-zero (P1).
     ///
@@ -29,12 +35,27 @@ impl Store {
             );
     }
 
-    /// The camera this store will place with. Session-scoped (D5).
+    /// The camera this store will place with. Session-scoped (D5), authored at
+    /// `CAMERA_START` (E10.5): resolved stored ∪ pending, exactly as `Definitions`
+    /// resolves a composition, so a restart replays it from the journal instead of
+    /// losing it to a field that was never a record.
     pub fn camera(&self) -> Camera {
-        self.inner
-            .camera
-            .lock()
-            .expect("camera lock")
+        let at = self.inner.db.stable_revision().legacy_sequence();
+        let mut rows = self
+            .inner
+            .records_in_range(CAMERA_START, CAMERA_END, at)
+            .unwrap_or_default();
+        for (bytes, payload) in self.inner.overlay_pending(CAMERA_START, CAMERA_END) {
+            if let Some(existing) = rows.iter_mut().find(|(b, _)| b == &bytes) {
+                existing.1 = payload;
+            } else {
+                rows.push((bytes, payload));
+            }
+        }
+        rows.into_iter()
+            .find(|(bytes, _)| bytes.as_slice() == CAMERA_START)
+            .and_then(|(_, payload)| super::record::decode_camera(&payload))
+            .map(|(x, y, zoom)| Camera::new(Point::new(x, y), zoom))
             .unwrap_or_else(default_camera)
     }
 
@@ -43,15 +64,20 @@ impl Store {
         let current = self.camera();
         let zoom = current.zoom.max(f64::MIN_POSITIVE);
         let centre = current.centre.sub(Point::new(delta_x / zoom, delta_y / zoom));
-        *self.inner.camera.lock().expect("camera lock") = Some(Camera::new(centre, zoom));
+        self.amend(
+            CAMERA_START,
+            &super::record::encode_camera(centre.x, centre.y, zoom),
+        );
     }
 
     /// Changes the session camera magnification while keeping it in a usable range.
     pub fn zoom_by(&self, steps: f64) {
         let current = self.camera();
         let zoom = (current.zoom * 1.1_f64.powf(steps)).clamp(1.0, 1.0e9);
-        *self.inner.camera.lock().expect("camera lock") =
-            Some(Camera::new(current.centre, zoom));
+        self.amend(
+            CAMERA_START,
+            &super::record::encode_camera(current.centre.x, current.centre.y, zoom),
+        );
     }
 
     /// Binds the graph composition `link` previews while a wire is pending (C4).
@@ -103,8 +129,10 @@ impl Store {
             );
             centre = view.embedding().invert().apply(mid);
         }
-        *self.inner.camera.lock().expect("camera lock") =
-            Some(Camera::new(centre, current.zoom * 2.0));
+        self.amend(
+            CAMERA_START,
+            &super::record::encode_camera(centre.x, centre.y, current.zoom * 2.0),
+        );
     }
 
     /// Writes one 1×1 space if the editor space is empty, so the window has

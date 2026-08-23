@@ -1,8 +1,8 @@
 # Infinite Solutions — E10, it draws
 
-> **Status:** draft 1, 2026-08-22. E10.0–E10.3 landed; E10.4 landed in part; E10.5 not
-> started. R20: a status line is written by the change that lands the phase, never at
-> authoring time, and never by the person who wrote the plan.
+> **Status:** draft 1, 2026-08-22. E10.0–E10.4 landed; E10.5 landed in part. R20: a
+> status line is written by the change that lands the phase, never at authoring time,
+> and never by the person who wrote the plan.
 >
 > Rules: [`../RULES.md`](../RULES.md) · Decisions: [`../DECISIONS.md`](../DECISIONS.md) ·
 > Charter: [`../CHARTER.md`](../CHARTER.md) · Predecessor:
@@ -24,8 +24,8 @@
 | **E10.1** | Headless readback, and the check that fails | landed | `tests/pixels.rs` | `tests/pixels.rs` renders to an offscreen texture, copies it back, and asserts the centre pixel of node A. **It must fail on today's `Surface`** before anything else in this plan is written |
 | **E10.2** | The device reaches the window | landed | `tests/pixels.rs` + the running binary | The window holds an adapter, a device, a queue and a configured swapchain. The frame clears to a colour **read from the store** and presents. Edit the canvas style row, restart, the background changes |
 | **E10.3** | The surface geometry is the window's | landed | `tests/pixels.rs` + the running binary | Resize the window; `SurfaceRect` follows within one tick, origin and scale factor included. `set_surface` has a non-test caller. The saturation test still passes |
-| **E10.4** | The placement becomes pixels | landed in part — **the A/B gap is blocked on O22** | `tests/pixels.rs` | E10.1's readback passes. Node A is its authored fill; the gap between A and B is background; a probe at the readback's brightest pixel returns node A's address |
-| **E10.5** | Pan and zoom | not started | — | §1 of `EDITOR-BOOTSTRAP.md` lists six interactions; all six work against the running binary. Zoom changes which level is the graph (D20), and the camera is authored, not a field |
+| **E10.4** | The placement becomes pixels | landed — O22 is closed | `tests/pixels.rs::the_authored_screen_reaches_the_framebuffer` | E10.1's readback passes. Node A and node B are each the fill on their own authored style row, at their own authored position; the two are distinct pixels, not one stacked rectangle |
+| **E10.5** | Pan and zoom | landed in part — the camera is a record; **the D20 multi-level claim is unverified, and O23 says the check may not be writable as specified** | `tests/camera.rs` | The camera is authored at a well-known address and resolved stored ∪ pending, exactly as `Definitions` resolves a composition (§3.6). `pan_and_zoom_are_visible_before_any_commit` and `a_crash_after_pan_and_zoom_replays_the_camera_before_the_first_tick` are the falsifiable pair. **Not done:** "zoom changes which level is the graph" — see the note below the table |
 
 **E10.4 is the deliverable.** E10.1 is the one that must not be skipped, and E10.0 is
 the one that will feel like paperwork and is not.
@@ -33,14 +33,35 @@ the one that will feel like paperwork and is not.
 > **What landed, and what did not.** Pixels reach the screen, and the readback proves
 > the chain from a store record to a framebuffer value: three authored style rows
 > resolve to three distinct colours, and editing one row changes the picture with
-> nothing recompiled. What did **not** land is E10.4's *"the gap between A and B is
-> background"*. **There is no authored position anywhere in the presenter** — genesis
-> writes an `origin`, `displace` updates it, `Scene` decodes it and drops it, because
-> `Placeable` has no field for it. Both nodes are therefore drawn at the same
-> rectangle, and E7's *"drag a node and it moves"* is true in the store and false on
-> screen. That is finding 18 and O22. It is a change to a locked layer's core type,
-> which R29 says is corrected rather than merged, so it is raised here and not patched
-> around.
+> nothing recompiled. **Finding 18 and O22 are now closed, correcting this section**:
+> `Placeable` carries a `position: Point` field, `Scene::placed_in` decodes it from
+> the space record's `origin`, and `place_group` offsets the local rect by it
+> (`crates/infinite-presenter/src/core/place.rs`). Genesis seeds node B at a distinct
+> origin (`[0.5, 0.0]`, `src/editor/genesis.rs`), and
+> `the_authored_screen_reaches_the_framebuffer` asserts the two nodes land on
+> different pixels. E7's *"drag a node and it moves"* is now true on screen as well
+> as in the store — this correction is itself an instance of R20/R23: the fix landed
+> without the status line that should have accompanied it, and stayed undiscovered
+> until this document was next read closely.
+
+> **E10.5, split.** The camera stopped being a `Mutex<Option<Camera>>` field that
+> `pan_by`/`zoom_by` wrote directly, and became `CAMERA_KEY` (`editor::addresses`), a
+> well-known address `Scene::camera` resolves stored ∪ pending — the exact mechanism
+> §3.6 asked for. `tests/camera.rs` is the falsifiable pair: pan and zoom are visible
+> before any commit, and both survive a restart via journal replay, the same way a
+> dragged node does (E7). What did **not** land is the stage's other claim, *"zoom
+> changes which level is the graph."* `place_group`'s recursion into a `hosts_space`
+> child needs `item.at.prefix_bits() < level` (`crates/infinite-presenter/src/core/
+> place.rs`), and every address the facade hands the presenter is canonicalized to
+> exactly 4 bytes by `Inner::coord`/`Inner::bytes_of` (`src/facade/open.rs`) —
+> right-aligned for a short key, FNV1a-hashed for a longer one, either way always 32
+> bits. `prefix_bits()` is therefore always 32, and `level` is clamped by the
+> surface-size floor to roughly 9–12, so the recursion's guard can never be satisfied,
+> for any genesis, at any depth. **Seeding a deeper genesis, as §3.6 instructs, will
+> not make this check able to fail** — it is not a missing fixture, it is the address
+> scheme itself. That is finding 19 and O23. It is a change to a locked layer's storage
+> scheme, which R29 says is corrected rather than merged, so it is raised here and not
+> patched around.
 
 ---
 
@@ -142,6 +163,18 @@ lines, and a label is a text run** — the moment a second primitive exists, eit
 facade invents the grouping (and D29's split quietly moves, which is `hyper-ui`'s
 failure relocated rather than avoided) or `Placement` grows a way to say it. Decide
 before E10.4 hardcodes one pipeline, not after. See O20.
+
+**19. Address canonicalization makes multi-level nesting structurally unreachable.**
+`Inner::coord`/`Inner::bytes_of` (`src/facade/open.rs`) map every address the facade
+ever hands the presenter to exactly 4 bytes — a short key is right-aligned into a
+`u32`, a longer one is FNV1a-hashed, and either way `Addr::prefix_bits()` comes back
+32. `place_group`'s recursion into a `hosts_space` child (`crates/infinite-presenter/
+src/core/place.rs`) fires only when `level > item.at.prefix_bits()`, and `level` is
+clamped by the surface-size floor to roughly 9–12 (`crates/infinite-presenter/src/
+core/place.rs::surface_floor`) — never 32. No genesis, however deep, changes this: the
+guard compares against a constant. §3.6's instruction to "seed a deeper genesis...
+before writing the check, or the check cannot fail" cannot be satisfied by seeding
+alone. Fixed by neither E10.5 nor any stage before it; see O23.
 
 **15. The portal's coordinate spaces are unreconciled.** `CursorMoved` delivers
 physical pixels; `SurfaceRect` carries a `scale_factor` the placement multiplies by;
@@ -372,7 +405,8 @@ table, which is where it was needed and did not reach.
 |---|---|---|
 | **O18** | **Is the frame a registered derived artifact?** It is a pure function of a `Placement`, the style rows and the surface geometry — which is the definition D25 uses. If it registers, R12's generic discard harness audits *the screen*, and "the picture is correct" becomes a store-level property rather than a person looking at it. It is also the most literal possible test of D25's claim that the mechanism needs no per-artifact code | E10.4. Cheap to try once a readback exists; a redesign later |
 | **O19** | **Does the readback belong in `check-rules.sh` or in `tests/`?** It needs a GPU adapter, which no other check does | E10.1 |
-| **O22** | **Where does an authored position live?** Finding 18. `Placeable` has `across`, `down`, `style`, `detail_override`, `hosts_space`, `accepts` — and no position, so `place_group` stacks everything and a person cannot put a thing where they want it. D15's law is *the presentation layer holds positions*, and this is the layer with no way to be told one. Candidates: an `origin` on `Placeable` that `place_group` offsets by, which is small and makes drag visible; or an authored transform per space, which `Placement::spaces` is already shaped like | **Now.** It blocks the visible half of E7 and of E10.4, and E10.5's pan makes it worse rather than better |
+| ~~O22~~ | **Closed.** `Placeable` grew `position: Point`; `place_group` offsets the local rect by it; genesis seeds distinct origins; `tests/pixels.rs::the_authored_screen_reaches_the_framebuffer` verifies two nodes land on distinct pixels. Landed silently — no status line accompanied it, which is what re-flagged it | — |
+| **O23** | **Can `place_group` ever recurse into a nested space?** Finding 19. `Inner::coord`/`bytes_of` canonicalize every address to 4 bytes, so `prefix_bits()` is always 32 and `level` (clamped to the surface-size floor, ~9–12) can never exceed it — the recursion's guard is unsatisfiable regardless of genesis depth. Candidates: keep addresses variable-length past the facade boundary instead of canonicalizing to a fixed `u32`; or give `place_group` a different signal for "descend" than bit-length comparison. Either is a storage- or presenter-core change, not a genesis fixture | **Now.** It is what E10.5's own green check (D20's multi-level claim) needs to be writable at all |
 | **O21** | **Does `infinite_presenter::binding::frame` survive?** Finding 17: no caller since `Store::draw_with` took the three steps itself, because D44 needs the `SceneSet` the placement was built from and `frame` builds its own and drops it. Four lines. R27 makes an uncalled binding function a defect | E10.5, or the first consumer wanting a frame without a fill map |
 | **O20** | **Where does draw grouping live?** Finding 16. D15 and D29 give the presenter *"grouped how"* and `Placement` cannot say it. Either the artifact grows a grouping the presenter authors, or D29's split is amended to give the facade batching as well as API — one or the other, written down | E10.4 for the decision; **forced** by E8's wires, which are the second primitive |
 | O16 | Where does the editor's undo live | Unchanged. E10.5 makes it sharper: if the camera is a record, panning enters the undo stream, and that is probably wrong |

@@ -9,7 +9,7 @@ use infinite_db::infinitedb_core::space::SpaceConfig;
 use infinite_db::{EngineError, InfiniteDb, OpenOptions, WriteSession};
 use infinite_runtime::binding::ports::JournalEntry;
 use infinite_runtime::binding::Driver;
-use infinite_presenter::core::{Camera, Placement, SurfaceRect};
+use infinite_presenter::core::{Placement, SurfaceRect};
 use infinite_runtime::core::Addr;
 
 use super::addr::runtime_addr;
@@ -39,7 +39,6 @@ pub(crate) struct Inner {
     pub lineage: Mutex<BTreeMap<Addr, Vec<Addr>>>,
     pub dirty: Mutex<Vec<(Addr, u64)>>,
     pub plan: Mutex<Option<(Vec<u8>, Vec<u8>, Vec<u8>)>>,
-    pub camera: Mutex<Option<Camera>>,
     pub graph_root: Mutex<Option<Vec<u8>>>,
     /// The authored style table's address range, handed over by the app (D44).
     pub style_range: Mutex<Option<(Vec<u8>, Vec<u8>)>>,
@@ -97,7 +96,6 @@ pub fn open_with_options(dir: impl AsRef<Path>, options: OpenOptions) -> Result<
             lineage: Mutex::new(BTreeMap::new()),
             dirty: Mutex::new(Vec::new()),
             plan: Mutex::new(None),
-            camera: Mutex::new(None),
             graph_root: Mutex::new(None),
             style_range: Mutex::new(None),
             background: Mutex::new(None),

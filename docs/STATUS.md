@@ -10,6 +10,7 @@
 - Composition linking, link-time validation, structured findings, nested composition closure, interpreted execution, provenance, and tier-0 compiled-plan equivalence checking.
 - Runtime pending state, journal recovery, non-blocking writes, stale-frontier scheduling, and derived-artifact discard/rebuild behavior.
 - Presenter culling, arrangement, camera transforms, level of detail, address-based hit testing, authored styles, GPU rendering, and headless pixel readback.
+- An authored session camera (E10.5): pan and zoom amend a well-known record resolved stored ∪ pending, and survive a restart via journal replay, verified by `tests/camera.rs`.
 - Self-hosted editor bootstrap: authored screen data, selection, basic dragging, wire preview while pending, persistence, and finding navigation.
 - Desktop portal with window creation, GPU setup, resize and scale-factor reconciliation, OS input conversion, and portal-driven ticks.
 
@@ -22,7 +23,7 @@ InfiniteSolutions is its own primary consumer. The editor must become capable of
 - Complete no-code application-authoring workflow.
 - Property inspector, block palette, toolbar, settings, and general text editing.
 - General widget toolkit or reusable application templates.
-- Reliable pan and wheel-zoom interaction in the desktop portal.
+- Zoom revealing nested spaces (D20's multi-level claim): `place_group`'s recursion into a `hosts_space` child cannot fire under the store's current 4-byte address canonicalization, for any genesis depth — see `docs/plans/E10-IT-DRAWS.md` finding 19 and O23. This blocks a falsifiable check for E10.5's own stated green condition, not just the fixture that would exercise it.
 - Complete desktop verification of all authored-position editing gestures.
 - Placement grouping for rectangles, wires, and text as separate render work.
 - A single fully reconciled presenter frame path; the older binding frame helper remains an open cleanup item.

@@ -78,7 +78,26 @@ impl Port for Scene {
         set
     }
 
-    fn camera(&self, _of: &Addr, _at: Revision) -> Option<Camera> {
-        *self.inner.camera.lock().expect("camera lock")
+    fn camera(&self, _of: &Addr, at: Revision) -> Option<Camera> {
+        // Well-known key matches `editor::addresses::CAMERA_KEY` (D34); the literal
+        // bytes appear here rather than a cross-layer import, matching the
+        // `SCREEN_ROOT_KEY` precedent in `facade::present::record_findings` (R2).
+        let start: &[u8] = &[0x50, 0x00, 0x00, 0x01];
+        let end: &[u8] = &[0x50, 0x00, 0x00, 0x02];
+        let mut rows = match self.inner.records_in_range(start, end, at.get()) {
+            Ok(rows) => rows,
+            Err(_) => Vec::new(),
+        };
+        for (bytes, payload) in self.inner.overlay_pending(start, end) {
+            if let Some(existing) = rows.iter_mut().find(|(b, _)| b == &bytes) {
+                existing.1 = payload;
+            } else {
+                rows.push((bytes, payload));
+            }
+        }
+        rows.into_iter()
+            .find(|(bytes, _)| bytes.as_slice() == start)
+            .and_then(|(_, payload)| crate::facade::record::decode_camera(&payload))
+            .map(|(x, y, zoom)| Camera::new(infinite_presenter::core::Point::new(x, y), zoom))
     }
 }

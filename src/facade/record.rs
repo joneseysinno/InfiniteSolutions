@@ -24,6 +24,7 @@ pub struct SpaceRecord {
 const SPACE_MAGIC: &[u8] = b"IS1";
 const STYLE_MAGIC: &[u8] = b"ST1";
 const COMP_MAGIC: &[u8] = b"CM1";
+const CAMERA_MAGIC: &[u8] = b"CA1";
 const NONE: i64 = i64::MIN;
 
 /// One port, as genesis writes it. Direction is a flag so the editor never
@@ -159,6 +160,31 @@ pub fn decode_style(bytes: &[u8]) -> Option<(String, [f64; 4])> {
     ];
     let (name, _) = take_str(bytes, 35)?;
     Some((name, fill))
+}
+
+/// Encodes the session camera: centre (x, y), then zoom (E10.5).
+///
+/// Plain `f64`s, not `Camera` — this file stays a byte codec and does not name the
+/// presenter's core types, matching [`SpaceRecord`]'s split from `Placeable`/`Point`.
+/// The caller (`facade::present`) converts.
+pub fn encode_camera(centre_x: f64, centre_y: f64, zoom: f64) -> Vec<u8> {
+    let mut out = Vec::from(CAMERA_MAGIC);
+    for n in [centre_x, centre_y, zoom] {
+        out.extend_from_slice(&n.to_le_bytes());
+    }
+    out
+}
+
+/// Decodes the session camera as `(centre_x, centre_y, zoom)`. `None` if the payload
+/// is not a camera record.
+pub fn decode_camera(bytes: &[u8]) -> Option<(f64, f64, f64)> {
+    if bytes.len() < 3 + 24 || !bytes.starts_with(CAMERA_MAGIC) {
+        return None;
+    }
+    let x = f64::from_le_bytes(bytes[3..11].try_into().ok()?);
+    let y = f64::from_le_bytes(bytes[11..19].try_into().ok()?);
+    let zoom = f64::from_le_bytes(bytes[19..27].try_into().ok()?);
+    Some((x, y, zoom))
 }
 
 /// Encodes one composition. Deterministic.

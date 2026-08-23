@@ -83,5 +83,10 @@ pub const BEHAVIOUR_END_KEY: &[u8] = &[0x31, 0x00, 0x00, 0x00];
 /// Press-origin for a drag in progress. Latched while the button is down.
 pub const DRAG_FROM_KEY: &[u8] = &[0x40, 0x00, 0x00, 0x01];
 
+/// The session camera (E10.5, D5). Amended directly by the portal's pan/zoom —
+/// session-scoped fact, not authored geometry, so it is never read by the
+/// interpreted behaviour composition the way `DRAG_FROM_KEY` is.
+pub const CAMERA_KEY: &[u8] = &[0x50, 0x00, 0x00, 0x01];
+
 /// Authored graph being wired. A pending record here is C4's in-flight wire.
 pub const GRAPH_ROOT_KEY: &[u8] = &[0x60, 0x00, 0x00, 0x00];
