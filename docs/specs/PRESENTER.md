@@ -300,13 +300,13 @@ doing real work — *"`Shown < Collapsed < Hidden` is the demotion ladder, so de
 step is a successor."* That is a good design inside a one-dimensional space allocator
 and it is the wrong shape here, for a reason D20 already supplies:
 
-> **A node is a space seen from one level out.**
+> **A space, collapsed, is drawn as a node in its parent's graph** (corrected 2026-08-23, see D20).
 
 So *collapsed* is not a third state beside *shown* and *hidden*. **Collapse is zoom.**
-A space rendered at its own level is a node; a space rendered one level deeper is a
-graph; a space below the visible range is absent. Three enum variants collapse into
-one number, and the number is the same prefix arithmetic the runtime uses for
-priority.
+A space rendered at its own level is a node; a node's own space, rendered one level
+deeper, is a graph; a space below the visible range is absent. Three enum variants
+collapse into one number, and the number is the same prefix arithmetic the runtime
+uses for priority.
 
 *Consequences.* The core carries **zero enums**, and `scripts/check-rules.sh` pins the
 count at zero (§11) — a stronger position than the compositor's one, which owes a

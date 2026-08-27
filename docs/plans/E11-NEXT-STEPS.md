@@ -26,8 +26,8 @@ Actual state:
   offset, genesis seeding two nodes at distinct origins — all real, all tested.
 - **The camera is authored and persistent** (this session's work): pan/zoom amend a
   well-known record, resolved stored ∪ pending, survives a restart — `tests/camera.rs`.
-- **The one thing still faked is the platform's actual thesis.** D20/D31 — *a node
-  and a space are the same thing at two zoom levels, zoom reveals children* — has
+- **The one thing still faked is the platform's actual thesis.** D20/D31 — *a space
+  contains nodes, and a node may itself host its own space; zoom reveals it* — has
   never been exercised, and per finding 19/O23, currently **cannot** be: every
   address the facade hands the presenter is canonicalized to exactly 4 bytes, so the
   bit-length comparison `place_group` uses to decide "descend into this child" can

@@ -260,19 +260,32 @@ The core mechanic, in the form it should always be stated:
 
 | Word | Meaning |
 |---|---|
-| **space** | The unit. Subdivides. Carries its own coordinates and a permanent address. |
-| **node** | A space seen from one level out. Not a different thing — a different view. |
-| **graph** | What you see at one level: sibling spaces, and the hyperedges among them. |
-| **hyperedge** | Connects any number of spaces. Carries values between them. |
-| **zoom** | Changes which level is the graph. The primary navigation. |
+| **space** | The unit. A coordinate region. Carries its own coordinates and a permanent address. |
+| **node** | An object populating a space, at an address within it. May itself host its own space. |
+| **graph** | What you see at one level: the nodes populating a space, and the hyperedges among them. |
+| **hyperedge** | Connects any number of nodes. Carries values between them. |
+| **zoom** | Crosses the node/space seam — enters a node's own space, or leaves it. The primary navigation. |
 
 **"Chart" is retired.** `infinitedb-spatial-layer.md` uses it in the cartographic sense — a local coordinate patch, an atlas of charts. Correct in a database design document; in a visual programming platform it reads as data visualization, which is precisely the wrong picture. Citations of that document keep the original word; nothing else uses it.
 
 **This was already an R17 violation before the rename.** The design document said *chart* while the API said *space* (`SpaceId`, `SpaceConfig`, `register_space`, and `analysis-substrate-plan.md`'s "a part is a space, not a node"). Two names for one thing, in one repository — the mechanism that produced three `PageTree`s. `space` wins because the code already said it.
 
-**Consequences worth stating.**
+**Corrected, 2026-08-23.** This section's consequences originally opened with *"node
+and space are one thing at two zoom levels, not two things related by containment"*
+— a claim this project actually drifted on. It over-applied `infinitedb-spatial-layer.md` §2's
+indexing math — *"every node is simultaneously a vertex on its parent chart's Hilbert
+curve and the author of its own chart, of which it is the order-0 center"* — into a
+vocabulary claim it never made: that one *address* plays two roles in an indexing
+scheme does not mean "node" and "space" are one word for one thing. The actual
+mechanism the code already implements (`Addr::contains`'s byte-prefix check,
+`hosts_space`, `direct_children`) is containment, plainly: **a space contains nodes,
+placed at addresses within it, and a node may itself host its own space** — the same
+entity can be a node from its parent's side and a space from its own. Zoom is what
+lets a person cross that seam, not evidence there was no seam to cross. This locked
+decision keeps its number; the correction is recorded here rather than merged
+silently, per R29.
 
-*Node and space are one thing at two zoom levels*, not two things related by containment. `infinitedb-spatial-layer.md` §2 already says this — *"every node is simultaneously a vertex on its parent chart's Hilbert curve and the author of its own chart, of which it is the order-0 center"* — but says it as mathematics. The zoom formulation is the same fact stated as an interaction, and it is the one a person can learn.
+**Consequences worth stating.**
 
 *Zoom is the navigation model, not a view feature.* There is no separate "open", "expand", or "drill into" — those are all zoom. `Innovator`'s tier ladder (root → workspace → page → pod → component → particle) is a zoom ladder that was built without being named as one.
 
@@ -863,9 +876,10 @@ one step is a successor"* — driven by width pressure in a one-dimensional allo
 grep of that crate for `lod` returns nothing; there is no zoom-driven detail anywhere in
 the corpus.
 
-D20 answers differently, and it already said so: **a node is a space seen from one level
-out.** So *collapsed* is not a third state beside *shown* and *hidden*. **Collapse is
-zoom.** A space drawn at its own level is a node; one drawn deeper is a graph; one below
+D20 answers differently, and it already said so (corrected 2026-08-23, see D20): **a
+space, collapsed, is drawn as a node in its parent's graph.** So *collapsed* is not a
+third state beside *shown* and *hidden*. **Collapse is zoom.** A space drawn at its
+own level is a node; a node's own space, drawn one level deeper, is a graph; one below
 the visible range is absent. Three variants become one number.
 
 And the number is not new either. Level ℓ is the address truncated to ℓ·*D* bits —

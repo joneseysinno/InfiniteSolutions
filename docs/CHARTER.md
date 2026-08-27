@@ -59,7 +59,11 @@ Visual programming fails when the canvas becomes unreadable. **Nested spaces** a
 
 > **We subdivide spaces and connect them with hyperedges. Zoom into a space and you see more detail; zoom out and it becomes a node in the graph.**
 
-A node and a space are not two things related by containment. They are **one thing seen at two zoom levels**. What you see at any level is a graph — sibling spaces as nodes, and the hyperedges among them. Addresses are permanent, so drilling in never breaks a reference.
+A space contains nodes, and a node may itself be a space — the same entity can be
+both at once: an object populating its parent, and, if it hosts one, the root of its
+own interior. Zoom is how you cross that seam: collapsed, a space renders as a node
+in its parent's graph; entered, that node's own space is what you see, populated by
+its own nodes. Addresses are permanent, so drilling in never breaks a reference.
 
 Encapsulation, addressing, and navigation therefore come from one mechanism instead of three. And detail is **per space, not per camera**: zoom sets a default, and individual spaces are held open or closed against it, which is how several things stay legible at once.
 
@@ -69,11 +73,11 @@ Five words. Everything else is built from them.
 
 | Word | Meaning |
 |---|---|
-| **space** | The unit. Subdivides. Carries its own coordinates and a permanent address. |
-| **node** | A space seen from one level out. Not a different thing — a different view. |
-| **graph** | What you see at one level: sibling spaces, and the hyperedges among them. |
-| **hyperedge** | Connects any number of spaces. Carries values between them. |
-| **zoom** | Changes which level is the graph. The primary navigation. |
+| **space** | The unit. A coordinate region. Carries its own coordinates and a permanent address. |
+| **node** | An object populating a space, at an address within it. May itself host its own space. |
+| **graph** | What you see at one level: the nodes populating a space, and the hyperedges among them. |
+| **hyperedge** | Connects any number of nodes. Carries values between them. |
+| **zoom** | Crosses the node/space seam — enters a node's own space, or leaves it. The primary navigation. |
 
 ## Where "production" comes from
 
