@@ -55,7 +55,19 @@ impl Store {
     }
 
     /// Crosses the commit boundary for the pending entry at `origin`.
+    ///
+    /// The interpreted composition's native `commit` block reaches the same
+    /// action through `Inner::commit_pending` (`facade/ports/blocks.rs`) — this is
+    /// the app-driven entry to it, not a second implementation of it (R27/F-3).
     pub fn commit_at(&self, origin: &[u8]) -> bool {
+        super::open::Inner::commit_pending(&self.inner, origin)
+    }
+
+    /// Discards the pending gesture at `origin`, if any and if it has not yet
+    /// crossed the commit boundary. The other verb (D48 clause 2, E12.4): only
+    /// `super::ports::store_write`'s `submit` ever extends `Inner::commit_log`, and
+    /// `abandon` never reaches it, so a discard can never add an undo entry.
+    pub fn discard_at(&self, origin: &[u8]) -> bool {
         let origin = runtime_addr(origin);
         let mut driver = self.inner.driver.lock().expect("driver lock");
         let Some(seq) = driver
@@ -66,14 +78,7 @@ impl Store {
         else {
             return false;
         };
-        let ok = driver.pending().commit(seq);
-        if ok {
-            let mut journal = Journal {
-                inner: std::sync::Arc::clone(&self.inner),
-            };
-            driver.journal(seq, &mut journal);
-        }
-        ok
+        driver.pending().abandon(seq)
     }
 
     /// One unit of cadence. Reads the clock; never blocks, never sleeps, never spawns.

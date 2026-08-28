@@ -44,6 +44,28 @@ pub(crate) struct Inner {
     pub style_range: Mutex<Option<(Vec<u8>, Vec<u8>)>>,
     /// The space whose fill is the background (E10.2). Authored, never a constant.
     pub background: Mutex<Option<Vec<u8>>>,
+    /// This session's commit stream, in commit order (E12.1, D48 clause 4).
+    ///
+    /// Deliberately **not** a reuse of `dirty` above, even though both are pushed
+    /// from the same call site in [`super::ports::store_write`]: `dirty` must see
+    /// every write, including a genesis seed, because staleness marking is what
+    /// tells a derived artifact its input changed regardless of who changed it.
+    /// This log must see the opposite — it excludes a seed and excludes undo/redo's
+    /// own restoring write (`suppress_undo`, below), and unlike `dirty` it is
+    /// truncated when a fresh commit drops a redo tail (E12.3). Two invariants that
+    /// pull in different directions is two fields, not one field with a filter.
+    pub commit_log: Mutex<Vec<super::undo::CommitEntry>>,
+    /// How many leading entries of `commit_log` are the "present" — the undo/redo
+    /// navigation position (E12.2, E12.3). `undo` decrements it and commits the
+    /// value from one revision earlier; `redo` increments it and commits the value
+    /// the entry it steps onto originally wrote. Starts, and normally stays, at
+    /// `commit_log.len()`.
+    pub undo_cursor: Mutex<usize>,
+    /// Held while a write must not itself extend `commit_log` — [`Store::put`]'s
+    /// direct seed, and the restoring write `undo`/`redo` perform
+    /// (`super::undo::SuppressUndo`). `dirty` is unaffected either way (see
+    /// `commit_log` above).
+    pub suppress_undo: Mutex<bool>,
 }
 
 /// Opens the store at `dir`, registering the editor's 1-D space if needed.
@@ -99,6 +121,9 @@ pub fn open_with_options(dir: impl AsRef<Path>, options: OpenOptions) -> Result<
             graph_root: Mutex::new(None),
             style_range: Mutex::new(None),
             background: Mutex::new(None),
+            commit_log: Mutex::new(Vec::new()),
+            undo_cursor: Mutex::new(0),
+            suppress_undo: Mutex::new(false),
         }),
     };
     store.replay();
@@ -115,6 +140,12 @@ impl Store {
             .expect("in_flight lock")
             .clear();
         Ok(())
+    }
+
+    /// The store's current stable revision. Monotonic; never decreases (E12.2 —
+    /// what a test asserts `undo` increases rather than rewinds).
+    pub fn revision(&self) -> u64 {
+        self.inner.db.stable_revision().legacy_sequence()
     }
 
     /// Stops shard I/O draining so [`StoreWrite::submit`] can return `Full` (D33).
@@ -209,7 +240,12 @@ impl Store {
     }
 
     /// Writes one record and syncs.
+    ///
+    /// Suppressed from the undo stream (E12): a direct seed is not a user gesture,
+    /// and `undo`/`redo` themselves call this to perform the restoring write, which
+    /// must not re-enter the stack it is popping from.
     pub fn put(&self, key: &[u8], payload: &[u8]) {
+        let _suppress = super::undo::SuppressUndo::engage(&self.inner.suppress_undo);
         let mut write = self.store_write();
         use infinite_runtime::binding::ports::StoreWrite;
         let _ = write.submit(&runtime_addr(key), payload);
@@ -322,6 +358,33 @@ impl Inner {
                 Ok(out)
             }
             Err(e) => Err(e),
+        }
+    }
+
+    /// The value currently at `address`, read at this instant's stable revision, or
+    /// `None` if nothing is stored there. Used by [`super::ports::store_write`] to
+    /// capture what a commit is about to overwrite (E12, D48) — captured
+    /// synchronously, right before the write, rather than recovered afterward by
+    /// revision arithmetic. That is not a style choice: `db.revision()` (and the
+    /// `RevisionId` `try_insert` returns) are real wall-clock HLC stamps, while
+    /// every `at` this facade ever passes to a point-in-time read is the *dense*
+    /// legacy sequence `stable_revision()` returns — a different clock inside the
+    /// same `RevisionId` type. `legacy_sequence()` on an HLC stamp does not land on
+    /// that dense scale, so a captured HLC revision cannot be handed back to
+    /// `records_in_range` and mean anything — the undo stream's first draft did
+    /// exactly that and undo silently read the value it had just written. Capturing
+    /// the value itself sidesteps the mismatch instead of trying to reconcile the
+    /// two clocks.
+    pub(crate) fn current_value(&self, address: &[u8]) -> Option<Vec<u8>> {
+        let end = {
+            let mut c = Self::coord(address);
+            c = c.saturating_add(1);
+            Self::bytes_of(c)
+        };
+        let at = self.db.stable_revision().legacy_sequence();
+        match self.records_in_range(address, &end, at) {
+            Ok(mut rows) => rows.pop().map(|(_, payload)| payload),
+            Err(e) => panic!("store read failed (not a missing value): {e}"),
         }
     }
 

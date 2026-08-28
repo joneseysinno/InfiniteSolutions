@@ -23,6 +23,7 @@ impl Store {
         let mut driver = self.inner.driver.lock().expect("driver lock");
         register(driver.artifacts(), view);
         register_plan(driver.artifacts(), start, end, root);
+        super::undo::register_undo(driver.artifacts(), std::sync::Arc::clone(&self.inner));
     }
 
     /// Writes a port slot so `interpret` can read an unbound input.

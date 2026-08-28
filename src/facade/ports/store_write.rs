@@ -16,6 +16,15 @@ pub struct StoreWrite {
 impl Port for StoreWrite {
     fn submit(&mut self, origin: &Addr, payload: &[u8]) -> Submission {
         let point = Inner::point_of(origin.as_bytes());
+        // Captured *before* the write, and only when it will actually be used
+        // (E12): a genesis seed or undo/redo's own restoring write is suppressed
+        // from the undo stream, so there is no reason to pay for the read.
+        let suppressed = *self.inner.suppress_undo.lock().expect("suppress_undo lock");
+        let previous = if suppressed {
+            None
+        } else {
+            Some(self.inner.current_value(origin.as_bytes()))
+        };
         match self
             .inner
             .db
@@ -33,6 +42,22 @@ impl Port for StoreWrite {
                     .lock()
                     .expect("dirty lock")
                     .push((origin.clone(), rev));
+                // E12: extend the undo stream, unless this write is suppressed. A
+                // commit made with the cursor sitting behind the end drops the
+                // redo tail ahead of it (E12.3) before appending — the one place
+                // the tail is ever dropped.
+                if let Some(previous) = previous {
+                    let mut log = self.inner.commit_log.lock().expect("commit_log lock");
+                    let mut cursor = self.inner.undo_cursor.lock().expect("undo_cursor lock");
+                    log.truncate(*cursor);
+                    log.push(crate::facade::undo::CommitEntry {
+                        address: origin.as_bytes().to_vec(),
+                        revision: rev,
+                        previous,
+                        value: payload.to_vec(),
+                    });
+                    *cursor = log.len();
+                }
                 Submission::Accepted
             }
             Err(EngineError::QueueFull) => Submission::Full,

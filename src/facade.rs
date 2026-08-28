@@ -16,6 +16,7 @@ mod tick;
 mod present;
 mod record;
 mod run;
+mod undo;
 
 pub use addr::{
     compositor_addr, presenter_addr, presenter_revision, runtime_addr, runtime_revision,
@@ -29,3 +30,4 @@ pub use record::{
 };
 pub use open::{open, open_with_options, Store};
 pub use tick::TickReport;
+pub use undo::UNDO_KEY;

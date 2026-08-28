@@ -313,6 +313,12 @@ check E8  "pending wire links; mismatch zooms to its site" \
 check E9  "tier 0 passes the equivalence harness; discard is generic" \
   cargo test --offline --test tier0
 
+# E12 · undo writes the pre-drag value as a new commit, not a rewind; redo
+# replays it; discard drops a pending amend without touching the stream; the
+# stream itself passes R12's generic harness (D48).
+check E12 "undo/redo are new commits; discard is the other verb" \
+  cargo test --offline --test undo
+
 echo
 if [ "$fail" -eq 0 ]; then echo "all checks passed"; else echo "findings above"; fi
 exit "$fail"

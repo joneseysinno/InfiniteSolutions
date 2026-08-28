@@ -75,6 +75,10 @@ path = "tests/nesting.rs"
 name = "wires"
 path = "tests/wires.rs"
 
+[[test]]
+name = "undo"
+path = "tests/undo.rs"
+
 [workspace]
 resolver = "3"
 members = [

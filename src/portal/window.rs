@@ -5,7 +5,7 @@ use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::PhysicalKey;
+use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
 use winit::window::{Window as OsWindow, WindowId};
 
 use crate::facade::ports::Surface as Renderer;
@@ -37,6 +37,10 @@ struct App {
     swapchain: Option<Swapchain>,
     last_cursor: Option<(f64, f64)>,
     panning: bool,
+    /// Held modifier keys, tracked so `Ctrl+Z` / `Ctrl+Shift+Z` (E12.6) can be
+    /// read off a later, unrelated `KeyboardInput` event — winit reports the two
+    /// separately rather than bundling modifiers onto every key event.
+    modifiers: ModifiersState,
 }
 
 impl Window {
@@ -52,6 +56,7 @@ impl Window {
             swapchain: None,
             last_cursor: None,
             panning: false,
+            modifiers: ModifiersState::empty(),
         };
         event_loop.run_app(&mut app).expect("event loop run");
     }
@@ -108,12 +113,33 @@ impl ApplicationHandler for App {
                 self.store.zoom_by(steps);
                 self.redraw();
             }
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers.state();
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 if let PhysicalKey::Code(code) = event.physical_key {
                     let pressed = u8::from(event.state == ElementState::Pressed);
                     let mut payload = format!("{code:?}").into_bytes();
                     payload.push(pressed);
                     self.input.on_key(&self.store, &payload);
+
+                    // E12.6 — Ctrl+Z / Ctrl+Shift+Z. A held key auto-repeats
+                    // (`event.repeat`), which `undo`/`redo` tolerate the same way
+                    // any other "nothing left to do" call does (`None`, silently);
+                    // gating on `!repeat` would need to be manual-verified anyway
+                    // (R23) and would just be one more thing to get wrong before
+                    // that pass.
+                    if code == KeyCode::KeyZ
+                        && event.state == ElementState::Pressed
+                        && self.modifiers.control_key()
+                    {
+                        if self.modifiers.shift_key() {
+                            self.store.redo();
+                        } else {
+                            self.store.undo();
+                        }
+                        self.redraw();
+                    }
                 }
             }
             WindowEvent::Resized(size) => {
