@@ -40,39 +40,43 @@ impl Port for Scene {
         }
         let mut set = SceneSet::new(at);
         for (bytes, payload) in rows {
-            let (across, down, style, detail_override, hosts_space, accepts, position) =
-                if let Some(r) = crate::facade::record::decode_space(&payload) {
-                    (
-                        infinite_presenter::core::Extent::new(r.across[0], r.across[1], r.across[2]),
-                        infinite_presenter::core::Extent::new(r.down[0], r.down[1], r.down[2]),
-                        r.style.into_boxed_str(),
-                        r.detail_override,
-                        r.hosts_space,
-                        r.accepts,
-                        infinite_presenter::core::Point::new(r.origin[0], r.origin[1]),
-                    )
-                } else if payload == b"space" {
-                    (
-                        Extent::fixed(1.0),
-                        Extent::fixed(1.0),
-                        "plain".into(),
-                        None,
-                        false,
-                        true,
-                        infinite_presenter::core::Point::ORIGIN,
-                    )
-                } else {
-                    continue;
-                };
+            let record = if let Some(r) = crate::facade::record::decode_space(&payload) {
+                r
+            } else if payload == b"space" {
+                crate::facade::SpaceRecord {
+                    across: [1.0, 1.0, 0.0],
+                    down: [1.0, 1.0, 0.0],
+                    style: "plain".into(),
+                    detail_override: None,
+                    hosts_space: false,
+                    accepts: true,
+                    origin: [0.0, 0.0],
+                    primitive: String::new(),
+                    link: None,
+                }
+            } else {
+                continue;
+            };
+            // An unauthored primitive is an area, not an error: every record written
+            // before D46 is one, and defaulting here is what keeps them decodable.
+            let primitive = if record.primitive.is_empty() {
+                infinite_presenter::core::AREA.into()
+            } else {
+                record.primitive.into_boxed_str()
+            };
             set.insert(Placeable {
                 at: presenter_addr(&bytes),
-                across,
-                down,
-                style,
-                detail_override,
-                hosts_space,
-                accepts,
-                position,
+                across: Extent::new(record.across[0], record.across[1], record.across[2]),
+                down: Extent::new(record.down[0], record.down[1], record.down[2]),
+                style: record.style.into_boxed_str(),
+                detail_override: record.detail_override,
+                primitive,
+                link: record
+                    .link
+                    .map(|(from, to)| (presenter_addr(&from), presenter_addr(&to))),
+                hosts_space: record.hosts_space,
+                accepts: record.accepts,
+                position: infinite_presenter::core::Point::new(record.origin[0], record.origin[1]),
             });
         }
         set
@@ -82,8 +86,8 @@ impl Port for Scene {
         // Well-known key matches `editor::addresses::CAMERA_KEY` (D34); the literal
         // bytes appear here rather than a cross-layer import, matching the
         // `SCREEN_ROOT_KEY` precedent in `facade::present::record_findings` (R2).
-        let start: &[u8] = &[0x50, 0x00, 0x00, 0x01];
-        let end: &[u8] = &[0x50, 0x00, 0x00, 0x02];
+        let start: &[u8] = &[0x51, 0x00, 0x00, 0x00];
+        let end: &[u8] = &[0x52, 0x00, 0x00, 0x00];
         let mut rows = match self.inner.records_in_range(start, end, at.get()) {
             Ok(rows) => rows,
             Err(_) => Vec::new(),

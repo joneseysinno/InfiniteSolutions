@@ -91,6 +91,8 @@ mod tests {
             position: Point::ORIGIN,
             style: "plain".into(),
             detail_override: None,
+            primitive: crate::core::AREA.into(),
+            link: None,
             hosts_space: false,
             accepts: true,
         }

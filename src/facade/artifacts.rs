@@ -51,6 +51,8 @@ pub fn register(registry: &mut ArtifactRegistry, view: View) {
                 position: infinite_presenter::core::Point::ORIGIN,
                 style: "plain".into(),
                 detail_override: None,
+                primitive: infinite_presenter::core::AREA.into(),
+                link: None,
                 hosts_space: false,
                 accepts: true,
             });

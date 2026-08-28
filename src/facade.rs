@@ -19,6 +19,7 @@ mod run;
 
 pub use addr::{
     compositor_addr, presenter_addr, presenter_revision, runtime_addr, runtime_revision,
+    significant_bits,
 };
 pub use artifacts::{register, register_plan};
 pub use finding::{from_empty_screen, from_precision_floor};

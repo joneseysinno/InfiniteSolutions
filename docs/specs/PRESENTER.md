@@ -193,6 +193,29 @@ So the core's operations are `truncate(bits)` and `prefix_bits()`, both pure byt
 arithmetic. The presenter never learns *D*, never learns what a dimension is, and
 consequently cannot be wrong about one.
 
+**Amended 2026-08-28 by D45: the significant length is carried, not inferred.** The
+sentence above is right that the core counts bits. What it assumed, and the type
+enforced, is that the count is derivable from the byte length — `prefix_bits()` was
+`8 * len`. That asserts two things at once: that a level boundary always falls on a
+byte, and that a key handed over at its storage width is significant to its storage
+width. The second is false for any fixed-width key space, and it was false here:
+`infinite-db`'s editor space is one dimension of 32 bits, so every key arrived four
+bytes wide, `prefix_bits()` came back 32 for the screen root and for a node alike, and
+`contains` was satisfiable only by equality. That is finding 19, and it made D20's
+whole nesting claim structurally unreachable.
+
+So `Addr` carries `bits` as a second field. `Addr::with_bits(bytes, bits)` is what the
+facade uses; `Addr::new(bytes)` keeps the old meaning for callers whose addresses
+really are whole bytes. `contains` is bit-prefix containment over the significant
+length, and `as_bytes()` still returns the **whole** key, so a probe answers with an
+address the store can be asked about.
+
+**The layer still learns nothing about how the bits are allotted.** Who computes the
+significant length is the facade, because the facade is what knows the key scheme —
+`facade::significant_bits`, one function, over one scheme. That is the sense in which
+this amendment strengthens §3.2's argument rather than weakening it: the presenter
+gained a field and no knowledge.
+
 ### 3.3 One scalar, and it is `f64`
 
 > **`f32` appears nowhere in this crate.** The embedding is `f64` throughout.
@@ -432,6 +455,22 @@ The reason this works is not an editor feature. Level ℓ is the address truncat
 does this space get" is asking about that address and not about the camera. P6 is
 therefore impossible by construction rather than by policy.
 
+**Amended 2026-08-28 by D45: level and *openness* are two questions, not one.**
+Everything above stands for level — how much detail a space is drawn at is a property
+of its address and its own override, and P6 stays impossible. What does not follow, and
+what `place_group` wrongly derived from it, is *when a space's interior is shown*.
+Address depth answers **who is inside whom**. It cannot answer **when you can see in**,
+because in this layer a space's on-screen size is authored (`Placeable::across`,
+`position`) and is not a function of its address depth. The old guard,
+`level > at.prefix_bits()`, compared the two as if it were.
+
+The descend rule is now the space's apparent extent in device pixels against
+`View::opening_extent` — a property of the view, defaulting to 256, set by the caller
+for the reason `View::margin` is: what counts as legible depends on what is being
+drawn. `detail_override` still holds a space open or closed against that default, one
+step per doubling, read exactly as [`detail`] reads it, so §7.1's *"zoom resolves a
+default; a space overrides it"* is true of openness as well as of level.
+
 ### 7.3 Hysteresis, and the one thing worth salvaging wholesale
 
 A boundary crossed by a continuous quantity needs a dead band or it chatters.
@@ -480,15 +519,31 @@ a shape the person is still dragging.
 
 ### 8.2 What a placement is
 
-An ordered sequence of `Placed { at: Addr, rect: Rect, level: u32, clip: Option<Rect>,
-accepts: bool }`, in draw order, plus the per-space transforms it was built from.
+An ordered sequence of `Placed { at: Addr, rect: Rect, span: Option<(Point, Point)>,
+level: u32, clip: Option<Rect>, accepts: bool }`, in draw order, plus the per-space
+transforms it was built from, plus **`batches`** — a partition of that sequence into
+contiguous runs sharing an opaque `primitive` key.
+
+**`batches` is D46, and it is the phrase D15 and D29 already gave this layer.** Both
+grant the presenter *"what is uploaded, in what order, at what detail, **grouped
+how**"*, and until D46 a `Placement` had no way to say the last one: it was a flat list
+with one implicit pipeline, and the split held only because there was one primitive
+(finding 16). The facade selects a pipeline per batch and invents no grouping.
+
+`primitive` is a `Box<str>`, not a variant. The set of shapes is open by construction —
+a block author publishes a new one — and R16 makes a closed enum a defect wherever the
+set is open. `span` carries the two surface points a link runs between, because a
+bounding box cannot say which diagonal a line takes; `rect` remains the bounding box
+for every primitive, so culling, clipping and [`probe`] need no case per shape.
 
 `accepts` is the fix for P3. `hyper-ui`'s `viewport_at` had to take the store as an
 argument in order to ask what *kind* of thing it had found; here the question is
 answered once, at place time, from the `Scene` declaration, and baked in as a bit. The
 placement is then self-sufficient by construction.
 
-What is **not** in a `Placed`: a colour, a selection flag, a hover flag, a style. The
+What is **not** in a `Placed`: a colour, a selection flag, a hover flag, a style. Nor
+a primitive key — that is on the `Batch`, because it is what the grouping is *by*, and
+duplicating it per entry would be two places for one fact. The
 counter-example is `hyper-ui/src/renderer/scene_node.rs`, an 11-line struct that
 correctly holds no identity — and therefore had nowhere to put selection except
 `selected: bool` inside the geometry record, so selecting a thing means re-deriving and
@@ -799,9 +854,9 @@ becomes a document describing a repository that no longer exists.
 
 | # | Item | Trigger |
 |---|---|---|
-| **O14** | **The precision floor.** Clamp and report, or re-base the transform stack on the deepest common ancestor | The first composition where minimum embedded segment length approaches 2^(−P). §10 |
+| **O14** | **The precision floor.** Clamp and report, or re-base the transform stack on the deepest common ancestor | The first composition where minimum embedded segment length approaches 2^(−P). §10. **Now reachable**: D45 makes nesting real, so such a composition is something a person can author rather than a hypothetical |
 | O1 | Hot working set | **Sharpened, not closed.** Under §4 the placement *is* the candidate, and it is a registered artifact either way, so the architecture question is settled and only the measurement is owed: a warm prefix scan of ~1000 nodes against frame budget, in the runtime's S6 test bed |
-| O13 | Three `Addr` types, one per layer core | Unchanged: when the facade's conversion is more than a newtype unwrap. §3.2 adds evidence, not a trigger |
+| O13 | Three `Addr` types, one per layer core | **The trigger fired 2026-08-28 and the decision was deferred again, with a new trigger stated** (D45): `presenter_addr` computes a significant bit length and is no longer a newtype unwrap, but the logic is one function over one key scheme and the other two cores do not want it — promoting three types to share it would be R27's generality without a consumer. **New trigger: a second layer needing the significant length.** §3.2 |
 | O11 | Is the editor self-hosted | **Closed by D36.** Yes. |
 | O10 | Ownership and capability | Not this layer's — but `Scene` is where a *"may this viewer see that space"* check would go, and a placement that has already been built is too late. Do not build `Scene` so the check cannot be inserted |
 | — | Large numeric geometry | Out of scope by §2. Instancing, batching and buffer residency wait for the first consumer with a solve in it — the same trigger as both siblings |

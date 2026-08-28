@@ -1,8 +1,11 @@
 # Infinite Solutions — E10, it draws
 
-> **Status:** draft 1, 2026-08-22. E10.0–E10.4 landed; E10.5 landed in part. R20: a
-> status line is written by the change that lands the phase, never at authoring time,
-> and never by the person who wrote the plan.
+> **Status:** draft 1, 2026-08-22. **Complete as of 2026-08-28: E10.0–E10.5 landed,
+> and every open item this plan carried is closed** — O20 by D46, O21 by D47, O22 by
+> the position work, O23 by D45, O16 by D48, O18 and O19 answered below. Successor:
+> [`E11-NEXT-STEPS.md`](./E11-NEXT-STEPS.md). R20: a status line is written by the
+> change that lands the phase, never at authoring time, and never by the person who
+> wrote the plan.
 >
 > Rules: [`../RULES.md`](../RULES.md) · Decisions: [`../DECISIONS.md`](../DECISIONS.md) ·
 > Charter: [`../CHARTER.md`](../CHARTER.md) · Predecessor:
@@ -25,7 +28,7 @@
 | **E10.2** | The device reaches the window | landed | `tests/pixels.rs` + the running binary | The window holds an adapter, a device, a queue and a configured swapchain. The frame clears to a colour **read from the store** and presents. Edit the canvas style row, restart, the background changes |
 | **E10.3** | The surface geometry is the window's | landed | `tests/pixels.rs` + the running binary | Resize the window; `SurfaceRect` follows within one tick, origin and scale factor included. `set_surface` has a non-test caller. The saturation test still passes |
 | **E10.4** | The placement becomes pixels | landed — O22 is closed | `tests/pixels.rs::the_authored_screen_reaches_the_framebuffer` | E10.1's readback passes. Node A and node B are each the fill on their own authored style row, at their own authored position; the two are distinct pixels, not one stacked rectangle |
-| **E10.5** | Pan and zoom | landed in part — the camera is a record; **the D20 multi-level claim is unverified, and O23 says the check may not be writable as specified** | `tests/camera.rs` | The camera is authored at a well-known address and resolved stored ∪ pending, exactly as `Definitions` resolves a composition (§3.6). `pan_and_zoom_are_visible_before_any_commit` and `a_crash_after_pan_and_zoom_replays_the_camera_before_the_first_tick` are the falsifiable pair. **Not done:** "zoom changes which level is the graph" — see the note below the table |
+| **E10.5** | Pan and zoom | landed — both halves; O23 is closed by D45 | `tests/camera.rs` + `tests/nesting.rs::zoom_opens_a_space_and_reveals_the_nodes_inside_it` | The camera is authored at a well-known address and resolved stored ∪ pending, exactly as `Definitions` resolves a composition (§3.6). `pan_and_zoom_are_visible_before_any_commit` and `a_crash_after_pan_and_zoom_replays_the_camera_before_the_first_tick` are the falsifiable pair for the camera. For *"zoom changes which level is the graph"*: node A hosts a space with two nodes in it; at the resting camera they are not placed, and one `zoom_to` later they are, inside node A's rectangle, with a probe answering the interior node — see the note below the table |
 
 **E10.4 is the deliverable.** E10.1 is the one that must not be skipped, and E10.0 is
 the one that will feel like paperwork and is not.
@@ -44,7 +47,20 @@ the one that will feel like paperwork and is not.
 > without the status line that should have accompanied it, and stayed undiscovered
 > until this document was next read closely.
 
-> **E10.5, split.** The camera stopped being a `Mutex<Option<Camera>>` field that
+> **E10.5's second half, landed 2026-08-28 — this corrects the note below it.**
+> D45 closes O23 with two changes, because either alone leaves the claim untrue.
+> `Addr` now carries a significant **bit** length that the facade supplies, so
+> `contains` is bit-prefix containment and the editor's well-known keys are a real
+> hierarchy (one nibble per level, no level's nibble zero). And `place_group` no
+> longer descends on a bit comparison at all: a `hosts_space` child is entered when
+> its extent on the surface reaches `View::opening_extent`, with `detail_override`
+> still holding a space open or closed against that default. Address depth says who is
+> inside whom; apparent size says when you can see in — conflating them was finding
+> 19. `tests/nesting.rs` was written first and seen to fail for the right reason: five
+> flat siblings at the resting camera, and `canvas.contains(node A)` false.
+>
+> **E10.5, split** *(the state before 2026-08-28; kept as written, per R21)*. The
+> camera stopped being a `Mutex<Option<Camera>>` field that
 > `pan_by`/`zoom_by` wrote directly, and became `CAMERA_KEY` (`editor::addresses`), a
 > well-known address `Scene::camera` resolves stored ∪ pending — the exact mechanism
 > §3.6 asked for. `tests/camera.rs` is the falsifiable pair: pan and zoom are visible
@@ -175,6 +191,11 @@ core/place.rs::surface_floor`) — never 32. No genesis, however deep, changes t
 guard compares against a constant. §3.6's instruction to "seed a deeper genesis...
 before writing the check, or the check cannot fail" cannot be satisfied by seeding
 alone. Fixed by neither E10.5 nor any stage before it; see O23.
+
+> **Closed 2026-08-28 by D45.** Both halves of the diagnosis held. The fix is an
+> address that carries its significant bit length plus a descend rule that asks about
+> apparent size rather than bit count; the fixture was needed too, but the finding was
+> right that it was not sufficient. `tests/nesting.rs`.
 
 **15. The portal's coordinate spaces are unreconciled.** `CursorMoved` delivers
 physical pixels; `SurfaceRect` carries a `scale_factor` the placement multiplies by;
@@ -403,12 +424,12 @@ table, which is where it was needed and did not reach.
 
 | # | Item | Trigger |
 |---|---|---|
-| **O18** | **Is the frame a registered derived artifact?** It is a pure function of a `Placement`, the style rows and the surface geometry — which is the definition D25 uses. If it registers, R12's generic discard harness audits *the screen*, and "the picture is correct" becomes a store-level property rather than a person looking at it. It is also the most literal possible test of D25's claim that the mechanism needs no per-artifact code | E10.4. Cheap to try once a readback exists; a redesign later |
-| **O19** | **Does the readback belong in `check-rules.sh` or in `tests/`?** It needs a GPU adapter, which no other check does | E10.1 |
+| ~~O18~~ | **Answered 2026-08-28: not yet, and the reason is now specific.** `Placement` already registers (D25) and `Surface::submit` is a pure function of a placement, a fill map and the drawable size — but the *frame* is pixels in a swapchain texture the portal owns, and R12's discard harness has nowhere to put them. What a readback gives is an equality check on a texture, which `tests/pixels.rs` and `tests/wires.rs` now do directly and cheaply. **Re-triggered by** a consumer that needs the frame itself rebuilt from the store rather than re-drawn — a thumbnail, a print, a headless export. **Was:** *Is the frame a registered derived artifact?* It is a pure function of a `Placement`, the style rows and the surface geometry — which is the definition D25 uses. If it registers, R12's generic discard harness audits *the screen*, and "the picture is correct" becomes a store-level property rather than a person looking at it. It is also the most literal possible test of D25's claim that the mechanism needs no per-artifact code | E10.4. Cheap to try once a readback exists; a redesign later |
+| ~~O19~~ | **Closed: `tests/`.** `Surface::offscreen` returns `None` with no adapter and the tests print *"no GPU adapter available; skipping"* rather than failing, so the suite stays runnable on a machine with no GPU stack — which a `check-rules.sh` entry could not do without the script learning what a GPU is. `check-rules.sh` invokes the readback tests indirectly through the stage checks it already runs | — |
 | ~~O22~~ | **Closed.** `Placeable` grew `position: Point`; `place_group` offsets the local rect by it; genesis seeds distinct origins; `tests/pixels.rs::the_authored_screen_reaches_the_framebuffer` verifies two nodes land on distinct pixels. Landed silently — no status line accompanied it, which is what re-flagged it | — |
-| **O23** | **Can `place_group` ever recurse into a nested space?** Finding 19. `Inner::coord`/`bytes_of` canonicalize every address to 4 bytes, so `prefix_bits()` is always 32 and `level` (clamped to the surface-size floor, ~9–12) can never exceed it — the recursion's guard is unsatisfiable regardless of genesis depth. Candidates: keep addresses variable-length past the facade boundary instead of canonicalizing to a fixed `u32`; or give `place_group` a different signal for "descend" than bit-length comparison. Either is a storage- or presenter-core change, not a genesis fixture | **Now.** It is what E10.5's own green check (D20's multi-level claim) needs to be writable at all |
-| **O21** | **Does `infinite_presenter::binding::frame` survive?** Finding 17: no caller since `Store::draw_with` took the three steps itself, because D44 needs the `SceneSet` the placement was built from and `frame` builds its own and drops it. Four lines. R27 makes an uncalled binding function a defect | E10.5, or the first consumer wanting a frame without a fill map |
-| **O20** | **Where does draw grouping live?** Finding 16. D15 and D29 give the presenter *"grouped how"* and `Placement` cannot say it. Either the artifact grows a grouping the presenter authors, or D29's split is amended to give the facade batching as well as API — one or the other, written down | E10.4 for the decision; **forced** by E8's wires, which are the second primitive |
-| O16 | Where does the editor's undo live | Unchanged. E10.5 makes it sharper: if the camera is a record, panning enters the undo stream, and that is probably wrong |
-| O14 | The precision floor | E10.4 is the first stage where `Placement::precision_floor` can be *seen* rather than asserted |
+| ~~O23~~ | **Closed by D45.** `Addr` carries a significant bit length the facade supplies; the editor's keys are a nibble-per-level hierarchy; and the descend rule is apparent size against `View::opening_extent`, not a bit comparison. `tests/nesting.rs` — written first, seen to fail. **Was:** *Can `place_group` ever recurse into a nested space?* Finding 19. `Inner::coord`/`bytes_of` canonicalize every address to 4 bytes, so `prefix_bits()` is always 32 and `level` (clamped to the surface-size floor, ~9–12) can never exceed it — the recursion's guard is unsatisfiable regardless of genesis depth. Candidates: keep addresses variable-length past the facade boundary instead of canonicalizing to a fixed `u32`; or give `place_group` a different signal for "descend" than bit-length comparison. Either is a storage- or presenter-core change, not a genesis fixture | **Now.** It is what E10.5's own green check (D20's multi-level claim) needs to be writable at all |
+| ~~O21~~ | **Closed by D47: no — retired, and replaced.** `binding::compose(scene, view, at)` returns `(SceneSet, Placement)` and leaves submitting to the caller, which is the shape two consumers now want (D44's fill map and D46's batch walk). `Store::draw_with` and `Store::place_now` are the callers, so R27 is satisfied by a caller rather than by a deletion. **Was:** Finding 17: no caller since `Store::draw_with` took the three steps itself, because D44 needs the `SceneSet` the placement was built from and `frame` builds its own and drops it. Four lines. R27 makes an uncalled binding function a defect | E10.5, or the first consumer wanting a frame without a fill map |
+| ~~O20~~ | **Closed by D46: with the presenter.** `Placement::batches` partitions `placed` into contiguous runs sharing an opaque `primitive` key; the facade selects a pipeline per batch and invents nothing. A `Box<str>` and not an enum, because the set of primitives is open (R16, F-1). **Was:** *Where does draw grouping live?* Finding 16. D15 and D29 give the presenter *"grouped how"* and `Placement` cannot say it. Either the artifact grows a grouping the presenter authors, or D29's split is amended to give the facade batching as well as API — one or the other, written down | E10.4 for the decision; **forced** by E8's wires, which are the second primitive |
+| ~~O16~~ | **Closed by D48.** Undo is a new commit restoring the previous value; the pending set is discarded rather than undone; the camera is outside the stream because it never commits, which answers this row's worry structurally rather than by exception. `E12-UNDO.md` carries the stages | — |
+| O14 | The precision floor | Unchanged, and now reachable: D45 makes nesting real, so a composition deep enough to approach 2^(−P) is something a person can actually author. Still deferred until one is measured |
 | O1 | Hot working set | E10.4. The measurement D30 asked for needs a frame that actually costs something |

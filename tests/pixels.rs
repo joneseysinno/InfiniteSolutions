@@ -28,11 +28,14 @@ const HEIGHT: u32 = 600;
 const PLAIN: [u8; 3] = [56, 122, 209];
 const CANVAS: [u8; 3] = [31, 33, 41];
 
-/// The default camera puts root-space (0,0) at surface (200,100) at zoom 400, so
-/// the canvas covers (200,100)..(600,500) and a node covers (200,100)..(360,260).
+/// The default camera puts root-space (0,0) at surface (200,100) at zoom 400, so the
+/// canvas covers (200,100)..(600,500), node A covers (200,100)..(360,260), and node B
+/// — authored down and across, so E11's wire between them is a diagonal — covers
+/// (400,300)..(560,460). The canvas-only sample avoids both, and the node-B sample
+/// avoids the wire, which runs from (280,180) to (480,380).
 const IN_NODE: (u32, u32) = (250, 150);
-const IN_NODE_B: (u32, u32) = (450, 150);
-const IN_CANVAS_ONLY: (u32, u32) = (500, 400);
+const IN_NODE_B: (u32, u32) = (430, 320);
+const IN_CANVAS_ONLY: (u32, u32) = (250, 450);
 
 fn near(got: [u8; 4], want: [u8; 3], what: &str) {
     // A tolerance, not a golden image: float-to-unorm8 rounding is not bit-identical

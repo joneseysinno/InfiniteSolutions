@@ -67,6 +67,14 @@ path = "tests/pixels.rs"
 name = "camera"
 path = "tests/camera.rs"
 
+[[test]]
+name = "nesting"
+path = "tests/nesting.rs"
+
+[[test]]
+name = "wires"
+path = "tests/wires.rs"
+
 [workspace]
 resolver = "3"
 members = [

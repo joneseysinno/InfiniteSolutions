@@ -210,3 +210,39 @@ Stated so the list cannot grow by accident (R27).
 
 R30: a change to this document, or to the port count, or to where `f32` is legal,
 requires a decision record.
+
+
+---
+
+## Amendments of 2026-08-28
+
+Three, all recorded here because R30 makes the facade the compatibility surface and a
+facade change requires a decision record.
+
+**`presenter_addr` is no longer a wrap (D45).** It computes the address's significant
+bit length from the editor's key scheme — four bits per level, no level's nibble zero,
+so the length is four times the position of the last non-zero nibble — and hands the
+presenter `Addr::with_bits`. `facade::significant_bits` is that function, and it is the
+only place in the repository that knows the scheme's arithmetic. It lives here and not
+in `editor::addresses` because the facade is what hands addresses to a layer and a
+layer may not name the editor (R2); the rule is stated in both files and checked in one
+(`tests/genesis.rs::a_well_known_key_is_a_hierarchy`).
+
+O13's trigger — *"the moment a conversion needs logic, promote `Addr` to a
+zero-dependency crate"* — has therefore fired. The promotion is deferred with a new
+trigger, stated under O13 in `DECISIONS.md`: **a second layer needing the significant
+length.** The other two conversions are still wraps and must stay that way.
+
+**A style descriptor crosses at `Store::draw_with`, and so does a primitive key
+(D44, D46).** `Surface::submit` takes colours, never style keys, because resolving a
+key is the app's business and this file may not name the app. D46 adds the second half
+of the same shape: the placement's `Batch::primitive` is an **opaque key** on the way
+in, and `facade/ports/surface.rs` is where it becomes a pipeline. That resolution is a
+match on a string with a fallback to the area pipeline — a registry in its degenerate
+form (R4) — and it must not become an enum, because the set of primitives is open by
+construction and R16 makes a closed enum a defect wherever it is.
+
+**`Store::draw_with` and `Store::place_now` call `binding::compose` (D47).** The
+presenter's binding hands back `(SceneSet, Placement)` and leaves submitting here,
+because only this side can resolve a fill. `binding::frame` is retired, not renamed
+(R17).

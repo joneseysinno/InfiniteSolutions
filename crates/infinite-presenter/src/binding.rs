@@ -16,7 +16,7 @@
 pub mod ports;
 
 mod artifact;
-mod frame;
+mod compose;
 
 pub use artifact::{rebuild, ranges, KEY};
-pub use frame::frame;
+pub use compose::compose;

@@ -19,6 +19,10 @@ pub struct SpaceRecord {
     pub accepts: bool,
     /// Authored origin, across then down. Drag writes this (EDITOR.md §1).
     pub origin: [f64; 2],
+    /// Opaque primitive key — what shape draws this (D46). Empty means `rect`.
+    pub primitive: String,
+    /// The two addresses this connects, when it is a link rather than an area (D46).
+    pub link: Option<(Vec<u8>, Vec<u8>)>,
 }
 
 const SPACE_MAGIC: &[u8] = b"IS1";
@@ -88,6 +92,19 @@ pub fn encode_space(record: &SpaceRecord) -> Vec<u8> {
     for n in record.origin {
         out.extend_from_slice(&n.to_le_bytes());
     }
+    // Appended after `origin`, and read back only if present, for the same reason
+    // `origin` itself was: a record written by an earlier genesis still decodes, and
+    // the fields it predates take their documented default. The layout is still fixed
+    // — it only grows at the end — so a re-seed is bit-identical (E4).
+    put_str(&mut out, &record.primitive);
+    match &record.link {
+        None => out.push(0),
+        Some((from, to)) => {
+            out.push(1);
+            put_bytes(&mut out, from);
+            put_bytes(&mut out, to);
+        }
+    }
     out
 }
 
@@ -114,12 +131,27 @@ pub fn decode_space(bytes: &[u8]) -> Option<SpaceRecord> {
     let accepts = *bytes.get(i + 1)? != 0;
     i += 2;
     let origin = if bytes.len() >= i + 16 {
+        i += 16;
         [
-            f64::from_le_bytes(bytes.get(i..i + 8)?.try_into().ok()?),
-            f64::from_le_bytes(bytes.get(i + 8..i + 16)?.try_into().ok()?),
+            f64::from_le_bytes(bytes.get(i - 16..i - 8)?.try_into().ok()?),
+            f64::from_le_bytes(bytes.get(i - 8..i)?.try_into().ok()?),
         ]
     } else {
         [0.0, 0.0]
+    };
+    let (primitive, link) = match take_str(bytes, i) {
+        Some((primitive, n)) => {
+            let link = match bytes.get(n) {
+                Some(1) => {
+                    let (from, n) = take_bytes(bytes, n + 1)?;
+                    let (to, _) = take_bytes(bytes, n)?;
+                    Some((from, to))
+                }
+                _ => None,
+            };
+            (primitive, link)
+        }
+        None => (String::new(), None),
     };
     Some(SpaceRecord {
         across,
@@ -129,6 +161,8 @@ pub fn decode_space(bytes: &[u8]) -> Option<SpaceRecord> {
         hosts_space,
         accepts,
         origin,
+        primitive,
+        link,
     })
 }
 

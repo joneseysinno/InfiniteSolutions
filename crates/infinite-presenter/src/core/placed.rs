@@ -1,6 +1,7 @@
 //! [`Placed`] — one thing, on the screen.
 
 use crate::core::addr::Addr;
+use crate::core::point::Point;
 use crate::core::rect::Rect;
 
 /// Where one thing is, and how much of it is showing.
@@ -20,7 +21,18 @@ pub struct Placed {
     /// The store's address.
     pub at: Addr,
     /// Where it is, in surface coordinates.
+    ///
+    /// For a link primitive this is the segment's bounding box, grown by the stroke's
+    /// half-width — so culling, clipping and [`Self::covers`] keep working on one
+    /// shape for every primitive, and only the shader reads [`Self::span`].
     pub rect: Rect,
+    /// The two surface points a link runs between (D46). `None` for an area.
+    ///
+    /// A bounding box cannot say which diagonal a line takes, so the two points are
+    /// carried rather than recovered. One `Option` and not a second parallel list of
+    /// links: a list per primitive is F-1 wearing a different hat — the set of
+    /// primitives is open, and a `Placement` with a field per kind closes it.
+    pub span: Option<(Point, Point)>,
     /// How many address bits are significant here (spec §7).
     pub level: u32,
     /// The clip imposed by an enclosing space, if any.

@@ -4,7 +4,8 @@ use std::collections::BTreeMap;
 
 use infinite_presenter::binding::ports::Scene as ScenePort;
 use infinite_presenter::binding::ports::Surface as SurfacePort;
-use infinite_presenter::core::{place, probe, Camera, Point, Revision, View};
+use infinite_presenter::binding::compose;
+use infinite_presenter::core::{probe, Camera, Point, Revision, View};
 
 use super::finding::{from_empty_screen, from_precision_floor};
 use super::open::Store;
@@ -17,8 +18,8 @@ fn default_camera() -> Camera {
 /// Well-known key matches `editor::addresses::CAMERA_KEY` (D34); the literal bytes
 /// appear here rather than a cross-layer import, matching the `SCREEN_ROOT_KEY`
 /// precedent in `record_findings` below (R2).
-const CAMERA_START: &[u8] = &[0x50, 0x00, 0x00, 0x01];
-const CAMERA_END: &[u8] = &[0x50, 0x00, 0x00, 0x02];
+const CAMERA_START: &[u8] = &[0x51, 0x00, 0x00, 0x00];
+const CAMERA_END: &[u8] = &[0x52, 0x00, 0x00, 0x00];
 
 impl Store {
     /// Sets the drawable rectangle. Origin may be non-zero (P1).
@@ -148,12 +149,13 @@ impl Store {
 
     /// Places the current scene and submits it through `surface`.
     ///
-    /// **This no longer calls `infinite_presenter::binding::frame`.** That function
-    /// builds its own `SceneSet` and drops it, and D44's fill resolution needs the
-    /// set the placement was built from — so the three steps are taken here, which is
-    /// what `frame` does and what this function already half did. `frame` is left in
-    /// the presenter rather than deleted (R21); that it now has no caller is finding
-    /// 17 and O21.
+    /// **O21 is closed here.** `infinite_presenter::binding::frame` resolved its own
+    /// `SceneSet`, submitted, and dropped the set — and D44's fill resolution needs
+    /// the set the placement was built from, so this function took the steps itself
+    /// and left `frame` with no caller, which R27 makes a defect. D47 retires the
+    /// name and gives the binding [`infinite_presenter::binding::compose`], which
+    /// hands the set back and leaves submitting to whoever knows what a style key
+    /// means. That is this function, and it is the caller.
     pub fn draw_with(&self, surface: &mut Surface) {
         let geometry = *self.inner.surface.lock().expect("surface lock");
         surface.set_geometry(geometry);
@@ -162,9 +164,7 @@ impl Store {
         let camera = ScenePort::camera(&scene, &crate::facade::presenter_addr(&[0, 0, 0, 1]), at)
             .unwrap_or_else(|| self.camera());
         let view = View::new(camera, geometry, 0.0);
-        let start = crate::facade::presenter_addr(&[]);
-        let end = crate::facade::presenter_addr(&[0xFF, 0xFF, 0xFF, 0xFF]);
-        let set = ScenePort::placed_in(&scene, &start, &end, at);
+        let (set, placement) = compose(&scene, &view, at);
 
         let styles = self.styles();
         let mut fills = BTreeMap::new();
@@ -179,7 +179,6 @@ impl Store {
         }
         surface.set_fills(fills);
 
-        let placement = place(&set, &view);
         SurfacePort::submit(surface, &placement);
         self.record_findings(&placement);
         *self.inner.last_placement.lock().expect("placement lock") = Some(placement);
@@ -216,11 +215,8 @@ impl Store {
         let geometry = *self.inner.surface.lock().expect("surface lock");
         let scene = self.scene();
         let at = Revision::new(self.inner.db.stable_revision().legacy_sequence());
-        let start = crate::facade::presenter_addr(&[]);
-        let end = crate::facade::presenter_addr(&[0xFF, 0xFF, 0xFF, 0xFF]);
-        let set = ScenePort::placed_in(&scene, &start, &end, at);
         let view = View::new(self.camera(), geometry, 0.0);
-        let placement = place(&set, &view);
+        let (_set, placement) = compose(&scene, &view, at);
         self.record_findings(&placement);
         *self.inner.last_placement.lock().expect("placement lock") = Some(placement.clone());
         placement

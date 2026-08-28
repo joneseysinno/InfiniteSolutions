@@ -14,6 +14,8 @@ fn thing(bytes: Vec<u8>, hosts: bool, accepts: bool, override_steps: Option<i64>
         position: Point::ORIGIN,
         style: "plain".into(),
         detail_override: override_steps,
+        primitive: infinite_presenter::core::AREA.into(),
+        link: None,
         hosts_space: hosts,
         accepts,
     }
@@ -60,6 +62,8 @@ fn a_point_answers_without_a_port() {
         position: Point::ORIGIN,
         style: "plain".into(),
         detail_override: None,
+        primitive: infinite_presenter::core::AREA.into(),
+        link: None,
         hosts_space: false,
         accepts: true,
     });
@@ -70,6 +74,8 @@ fn a_point_answers_without_a_port() {
         position: Point::ORIGIN,
         style: "plain".into(),
         detail_override: None,
+        primitive: infinite_presenter::core::AREA.into(),
+        link: None,
         hosts_space: false,
         accepts: true,
     });
@@ -107,6 +113,8 @@ fn a_point_answers_without_a_port() {
         position: Point::ORIGIN,
         style: "plain".into(),
         detail_override: None,
+        primitive: infinite_presenter::core::AREA.into(),
+        link: None,
         hosts_space: false,
         accepts: true,
     });
@@ -117,6 +125,8 @@ fn a_point_answers_without_a_port() {
         position: Point::ORIGIN,
         style: "plain".into(),
         detail_override: None,
+        primitive: infinite_presenter::core::AREA.into(),
+        link: None,
         hosts_space: false,
         accepts: true,
     });

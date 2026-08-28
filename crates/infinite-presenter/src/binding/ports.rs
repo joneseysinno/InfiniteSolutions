@@ -10,7 +10,7 @@
 //!
 //! **There is no `Clock`**, stated positively so it stays true: the presenter has no
 //! *now* (R10, D5). Hysteresis is a function of zoom, not of time; animation, when a
-//! consumer asks for it, is the runtime driving [`crate::binding::frame`] with a
+//! consumer asks for it, is the runtime driving [`crate::binding::compose`] with a
 //! changing view. If this layer ever needs a clock, R10 has been violated.
 //!
 //! **There is no write port, and that is L6 made structural.** The presenter cannot

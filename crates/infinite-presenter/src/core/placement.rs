@@ -37,6 +37,27 @@ use crate::core::transform::Transform;
 /// **The registration itself happens in the facade, not here** — this crate may not
 /// name the runtime (D29), and the runtime may not name this one (D23).
 /// `binding::artifact` exposes the three parts; the facade hands them over.
+/// One contiguous run of [`Placement::placed`] that shares a primitive (D46).
+///
+/// This is the answer to O20 and to finding 16: `Placement` was a flat list with one
+/// implicit pipeline, and D15 and D29 both give this layer *"grouped how"*. A batch
+/// is the grouping, authored here, in draw order — the facade selects a pipeline per
+/// batch and never works the runs out for itself.
+///
+/// A `Box<str>` and not an enum. The set of primitives is open by construction (a
+/// block author publishes a new one), and R16 makes a closed enum a defect wherever
+/// the set is open; R4 already says layers reach each other through string keys.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Batch {
+    /// The opaque primitive key every entry in this run carries.
+    pub primitive: Box<str>,
+    /// Index into [`Placement::placed`] of the first entry.
+    pub first: usize,
+    /// How many entries. Never zero.
+    pub count: usize,
+}
+
+/// The derived map from address to rectangle at a level, in draw order.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Placement {
     /// Every placed thing, in draw order.
@@ -46,6 +67,11 @@ pub struct Placement {
     /// pre-order over children, and it is the one part of that file that needed no
     /// argument.
     pub placed: Vec<Placed>,
+    /// [`placed`](Self::placed) partitioned into runs that share a primitive (D46).
+    ///
+    /// A partition, in order, covering every entry exactly once. Empty exactly when
+    /// `placed` is.
+    pub batches: Vec<Batch>,
     /// The embedding of each visited space, in address order.
     ///
     /// One per **space**, never one per thing (spec §6.1). This is the map that makes

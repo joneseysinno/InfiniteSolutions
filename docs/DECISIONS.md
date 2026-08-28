@@ -368,7 +368,7 @@ recompiled). D32 recorded the root-package consequence.
 
 **O17 — closed by D37.** *Is the style table authored or native?* Authored under the style root when the store has rows; `editor/styles.rs` holds only the bootstrap default.
 
-**O16 — Where does the editor's undo live?** The charter says rollback comes from branch merge and audit from provenance; the editor exposes neither. Is undo a branch, a pending-set operation, or an app concern? **Visible as of E7 / D36.** Still open.
+**O16 — closed by D48.** *Where does the editor's undo live?* On the committed side of the commit boundary, as a new commit that restores the previous value. The pending set is discarded rather than undone, the camera is outside the stream because it never commits, and the stream itself is a registered derived artifact — so no fourth state category. The implementation is E12's; the decision is made.
 
 **O17 — closed by D37.** *Is the style table authored or native?* Authored under the style root when the store has rows; `editor/styles.rs` holds only the bootstrap default.
 
@@ -379,6 +379,18 @@ recompiled). D32 recorded the root-package consequence.
 *The three layers want different amounts of the type, and now two of them agree.* The runtime truncates prefixes for priority-by-distance-from-focus; the compositor deliberately refuses truncation (`docs/specs/COMPOSITOR.md` §3.2); the presenter truncates because **truncation is level**, which is its whole detail model (`docs/specs/PRESENTER.md` §3.2). So it is no longer one instance against one — it is two identical cores against one deliberate abstainer, which is the shape that usually means the shared thing is real.
 
 *`Revision` is the second type to duplicate.* The runtime's and the presenter's are the same twelve lines. Recorded rather than folded in quietly, because O13 was opened about one type and is now about a *set*, and a deferred decision whose scope grows without anyone noticing is how a deferral becomes a permanent condition.
+
+**The trigger fired 2026-08-28, and the decision is still deferred — with a new
+trigger, stated (D45).** `presenter_addr` is no longer a newtype unwrap: it computes
+the address's significant bit length from the editor's key scheme. That is exactly the
+condition this entry named. The promotion is *not* taken, and the reason is R27:
+`significant_bits` is one function over one key scheme, the runtime's and the
+compositor's addresses do not want it, and moving three types into a shared crate to
+share a function only one of them calls is generality without a consumer. **The new
+trigger is a second layer needing the significant length.** A deferral whose trigger
+fires and is silently re-armed is how a deferral becomes a permanent condition — which
+is what the paragraph above says — so the re-arming is written down rather than
+assumed.
 
 **O1 — Hot working set: yes or no?** D6 forbids a writable graph but does not settle whether a read-only hot working set sits between store and layout. **Deferred with a trigger:** measure a warm Hilbert prefix scan of ~1000 nodes out of `infinite-db` against frame budget. If it clears, there is no working set and the layer gets smaller. This is a measurement, not an architecture question.
 
@@ -1354,5 +1366,212 @@ table is read as a `Vec<(String, [f64; 4])>` rather than a map, because L5 forbi
 map keyed by anything but an address and `check-rules.sh`'s `maps_keyed_by_addr`
 enforces it; the table is a handful of rows and a linear scan is honest where a lookup
 structure would be the letter against the spirit.
+
+---
+
+## D45 — An address carries its significant length; apparent size decides descent · **locked** · 2026-08-28 · closes O23
+
+Two changes, one decision, because either alone leaves the claim untrue.
+
+**(1) `infinite_presenter::core::Addr` gains a bit length.** `Addr::with_bits(bytes,
+bits)` is the constructor the facade uses; `Addr::new(bytes)` keeps the old meaning
+(significant to the whole byte length) for the pure core's own callers.
+`prefix_bits()` returns the carried length, `truncate` sets it, and `contains` is
+**bit**-prefix containment over it.
+
+**(2) `place_group` descends on apparent size, not on a bit comparison.** A
+`hosts_space` child is entered when its extent on the surface reaches
+`View::opening_extent` device pixels — a property of the view, defaulting to 256, set
+by the caller for the reason `View::margin` is. `detail_override` still holds a space
+open or closed against that default, one step per doubling, exactly as `detail` reads
+the same field, so D5 and D20's *"detail is per space, not per camera"* survive intact.
+
+**Also decided here: the editor's well-known keys are a hierarchy, one nibble per
+level, with no level's nibble zero.** Four bytes wide, most-significant nibble first,
+top nibble the region. `facade::significant_bits` recovers a key's depth from its last
+non-zero nibble; `a_well_known_key_is_a_hierarchy` in `tests/genesis.rs` is the check.
+
+**What forced it.** `Inner::coord`/`bytes_of` map every address the facade hands the
+presenter to exactly four bytes, so `prefix_bits()` came back 32 for the screen root,
+the canvas and a node alike; `contains` was satisfiable only by equality; and
+`place_group`'s guard, `level > item.at.prefix_bits()`, compared that 32 against a
+level clamped by `surface_floor` to roughly 9–12. The guard could never fire, for any
+genesis, at any depth — `EDITOR-BOOTSTRAP.md` §9 finding 19 and O23. D20/D31, *"a
+space contains nodes, and a node may itself host its own space; zoom reveals it"*, is
+the platform's stated thesis and had never once been exercised.
+
+**Verified by** `tests/nesting.rs`. Written before the fix and seen to fail for the
+right reason: with the nested fixture seeded and nothing else changed,
+`a_closed_space_does_not_show_its_interior` reported five flat siblings at the resting
+camera — `[10 00 00 01], [10 00 00 10], [10 00 00 11], [10 00 00 12], [10 00 00 20]` —
+and `the_address_of_an_interior_node_says_it_is_interior` failed on *"the canvas
+contains node A"*.
+
+**Rejected alternatives.**
+
+*(a) as `E11-NEXT-STEPS.md` §1 wrote it — variable-length byte addresses past the
+facade boundary, with no change to the descend rule.* Half right, and the half it
+leaves out is the half that matters. A nesting level would cost eight bits, one bit is
+one doubling of zoom, so entering a space would take 256× magnification and entering
+two would take 65 536×. The claim would be true and unusable, which is a worse
+outcome than false and known-false.
+
+*(b) an authored `depth` field on the space record.* The plan called this a future
+liability and it is: depth becomes a fact someone must remember to set correctly
+rather than a structural property, which is `hyper-ui`'s failure mode, and a property
+inspector reading depth from an address (as the specification says it may) would be
+reading a different number from the one layout used.
+
+*(c) accept flat addressing and reframe D20 — make entering a space an explicit
+navigation action.* Declaring the original architectural bet void, and the bet is the
+answer to *"why does visual programming scale"*. Only worth taking if (a) proved
+disproportionate, and it did not.
+
+*(d) keep the bit comparison and widen the surface floor.* The floor measures how much
+detail the surface can resolve, which is a real quantity; making it lie so that an
+unrelated guard fires is F-7's habit of adjusting the measurement to suit the
+consumer. Address depth answers *who is inside whom*; apparent size answers *when can
+you see in*. They are different questions and one test cannot be both.
+
+**Cost, stated.** Every well-known address changed, and there is no migration
+machinery (D34's cost, a third time) — acceptable only because no data has shipped.
+`Addr` grew a field, which is a change to a locked layer's core type: R29 says such a
+change is corrected rather than merged, so it is raised as this record rather than
+folded into E11's work. Nesting depth is capped at seven levels below a region by the
+32-bit key, and the way past that is the store's own key width, not another scheme
+here. **O13's trigger has fired** — `presenter_addr` is no longer a newtype wrap —
+and the promotion of `Addr` to its own crate is deferred with the trigger restated
+under O13.
+
+---
+
+## D46 — The presenter authors the grouping; a primitive is an opaque key · **locked** · 2026-08-28 · closes O20
+
+`Placement` grows `batches: Vec<Batch>`, a partition of `placed` into contiguous runs
+that share a primitive. `Batch::primitive` is a `Box<str>`. `Placeable` grows
+`primitive` (authored, defaulting to `rect`) and `link: Option<(Addr, Addr)>`; `Placed`
+grows `span: Option<(Point, Point)>` — the two surface points a link runs between,
+because a bounding box cannot say which diagonal a line takes. The facade selects a
+pipeline per batch and invents no grouping of its own.
+
+**What forced it.** D15 and D29 both give this layer *"what is uploaded, in what order,
+at what detail, **grouped how**"*, and D29 leans on that last phrase to argue the
+facade owns only the API. `Placement` was a flat `Vec<Placed>` with one implicit
+pipeline and no way to say it (finding 16). With one primitive the gap was invisible
+and the split held by luck; E11's wires are the second primitive, and at that moment
+either the artifact says how things group or the facade works it out — which is
+`hyper-ui`'s failure relocated rather than avoided.
+
+**Verified by** `tests/wires.rs::the_placement_groups_the_wire_apart_from_the_rectangles`
+and `::off_the_line_is_still_the_canvas`. The second was seen to fail, with the link
+batch routed to the quad pipeline, as `channel 0 was 242, wanted 31` forty pixels off
+the line — a bounding box where a line should be.
+
+**A string and not an enum, deliberately.** The set of primitives is open by
+construction: a block author publishes a new one. R16 makes a closed enum a defect
+wherever the set is open, F-1 counts five prior occurrences, and R29 names an added
+enum as the class of proposal to correct rather than merge. R4 already says layers
+reach each other through string keys. An unknown key falls through to the area
+pipeline rather than drawing nothing, because a key with no pipeline and an empty
+screen must not look alike (`PRESENTER.md` §13 finding 8).
+
+**Rejected alternatives.** (a) `Placed { kind: PrimitiveKind }` — the enum above, and
+the shape the plan's own O20 entry leaned towards; rejected on R16 rather than on
+taste. (b) A second list, `Placement::links`, parallel to `placed` — F-1 wearing a
+different hat: a field per primitive closes an open set just as firmly as a variant per
+primitive, and a third primitive would need a third field. (c) The facade groups the
+flat list itself, and D29 is amended to give it batching as well as API — the split
+D29 exists to draw, quietly moved.
+
+**Cost, stated.** `Placed` gained an `Option` that is `None` for every area, which is
+a variant living inside a struct and is not free. It buys one shape for culling,
+clipping and hit-testing across every primitive — `rect` stays the bounding box and
+only the shader reads `span` — which is what keeps `probe` from needing a case per
+primitive. A link is placed after the areas in its group, so it can read where its
+ends landed; a link whose end is not on screen is not placed at all, which is the
+honest answer and not a line to nowhere.
+
+---
+
+## D47 — `frame` is retired; the binding hands back the scene it composed · **locked** · 2026-08-28 · closes O21
+
+`infinite_presenter::binding::frame` is removed. `binding::compose(scene, view, at) ->
+(SceneSet, Placement)` replaces it, and `Store::draw_with` and `Store::place_now` are
+its callers. Submitting is deliberately not in it: only the caller can resolve a style
+key to a fill, and this crate may not name the app.
+
+**What forced it.** `frame` resolved its own `SceneSet`, placed it, submitted, and
+dropped the set. D44's fill resolution needs the set the placement was built from and
+D46's batching needs it too, so `Store::draw_with` took the three steps itself and
+`frame` lost its last caller — finding 17, and R27 makes an uncalled binding function a
+defect. Two consumers now want *"a placement and the scene it came from"*, which is the
+threshold `E11-NEXT-STEPS.md` §3 named for reviving it properly rather than deleting it.
+
+**The name is retired, not reused** (R17). `frame` named a function that also
+submitted; `compose` names one that does not, and reusing the word for the second
+shape is precisely the recurrence R17 exists for.
+
+**Rejected alternative:** delete the file and leave the facade duplicating four lines.
+Honest, and it would have left the presenter's binding with no path from a `Scene` to a
+`Placement` at all — so the next consumer would write the fourth copy.
+
+---
+
+## D48 — Undo is a commit; the pending set is discarded, not undone · **locked** · 2026-08-28 · closes O16
+
+Four parts, and each answers one of the questions `E11-NEXT-STEPS.md` §4 asked.
+
+1. **Undo operates on committed history.** It writes the previous value as a **new
+   commit**. It never rewinds a revision.
+2. **The pending set is not in the undo stream.** Abandoning a gesture in progress is
+   `discard`, a different verb on a different gesture, and R13 already gives the
+   pending set the enumerate-and-commit boundary it needs.
+3. **The camera is therefore outside undo by construction, not by exception.**
+   `pan_by` and `zoom_by` amend `CAMERA_KEY` and nothing ever commits it (D5: the
+   camera is session-scoped; the journal replays it, the store never holds it). A
+   pan cannot enter a stream it never reaches.
+4. **The undo stream is a registered derived artifact** (D25, R12), a pure function of
+   the store's commit history above a session watermark. Drop it, rebuild it, get the
+   same stream. **No fourth state category** — D8's Stored / Derived / Pending stands.
+
+**What forced it.** O16 has been open since before the editor drew a pixel, and E10.5
+sharpened it: the camera became a pending record, exactly like a drag in progress or a
+half-drawn wire, and none of it had an undo story. Every new authored-state kind —
+positions, then camera, now wires, eventually text — makes retrofitting more expensive,
+and the plan's instruction was to decide the shape before E13 adds more.
+
+**Why the commit boundary is the right seam.** It is the only line in the system that
+already means *"the person finished saying it"*. Everything below it is a gesture and
+has one verb (discard); everything above it is a fact and has another (undo). The
+alternative — a policy per record kind, which the plan floated — is that same
+distinction, restated as a table someone has to maintain, and the table would be
+wrong the first time a new kind is added and nobody updates it.
+
+**Rejected alternatives.**
+
+*(a) Undo discards the last pending amend.* Cheapest, and useless: a drag commits on
+mouse-up, so by the time a person wants it back there is nothing pending. It also
+gives one keystroke two meanings depending on invisible state.
+
+*(b) Undo rewinds to the previous revision.* Makes provenance lie. The charter's
+production properties — audit from computation provenance, observability from the
+derivation DAG — all assume revisions are append-only, and R12's discard test rebuilds
+*from* history. An undo that edits history is an undo that edits the audit trail.
+
+*(c) The undo stack is an authored record.* It would survive a restart, and R10's
+membership test says a thing that only means anything while something is running
+belongs to the runtime. An undo stack from last Tuesday is not something anyone wants
+to press Ctrl-Z into.
+
+*(d) Undo is a branch, per the charter's "rollback | branch merge".* Branches are the
+right mechanism for a *deliberate* alternative line of work and the wrong one for a
+keystroke: a branch per undo is a branch per typo.
+
+**Cost, stated.** Undoing a delete needs the tombstoned value, which is readable at the
+previous revision — no new storage, one extra read. Two sessions editing concurrently
+get one stream each, because the watermark is per session; cross-session undo is out of
+scope until multi-user is, and `STATUS.md` already lists that under Not Yet. **This
+record is the decision and not the implementation**: E12's stage plan is owed, and
+under R20 no status line for it is written until the change that lands it says so.
 
 ---

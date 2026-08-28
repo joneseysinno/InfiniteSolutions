@@ -1,11 +1,14 @@
 # Infinite Solutions — after E10, what actually moves this forward
 
-> **Status:** draft 1, 2026-08-22. Written after confirming E10.0–E10.4 are genuinely
-> landed (a live window shows a real surface with correctly positioned, correctly
-> coloured nodes) and E10.5 is landed in part (the camera is an authored record; the
-> multi-level zoom claim is not verified and is blocked — see O23 below).
+> **Status:** draft 1, 2026-08-22. **Updated 2026-08-28 by the change that landed
+> §1 and §3.** The two decisions are made (O23 → D45, O20 → D46), §3's wire rendering
+> is landed, §4's undo decision is made (O16 → D48) and its stages moved to
+> [`E12-UNDO.md`](./E12-UNDO.md), and §5's scope is specified in
+> [`E13-AUTHORING-SURFACE.md`](./E13-AUTHORING-SURFACE.md). **§2 is the one item
+> still open, and it is the one nobody can automate**: a person has to sit at the
+> window.
 >
-> This is a roadmap, not a stage plan. Two items (O23, O20) are **decisions**, not
+> This is a roadmap, not a stage plan. Two items (O23, O20) were **decisions**, not
 > code, and everything below them is sequenced by what those decisions unblock. In
 > the spirit of R20/R23: nothing here gets a green check until it has one that can
 > fail, and nothing gets called "landed" until the change that lands it says so.
@@ -32,6 +35,10 @@ Actual state:
   address the facade hands the presenter is canonicalized to exactly 4 bytes, so the
   bit-length comparison `place_group` uses to decide "descend into this child" can
   never fire. This is the single most important open item below.
+
+  > **Landed 2026-08-28 (D45).** The diagnosis was right and incomplete — see §1
+  > below, which the same change annotates. `tests/nesting.rs` is the check, and it
+  > was written first and seen to fail.
 
 ---
 
@@ -65,6 +72,23 @@ increasing zoom reveals them level by level. Right now that test cannot be writt
 a way that can fail — write it first, watch it fail for the *right* reason under the
 current scheme, then pick (a) or (b) knowing exactly what makes it pass.
 
+> **Decided 2026-08-28 — D45, and it is (a) plus a third thing this table did not
+> name.** The failing test was written first, as instructed, and it failed for two
+> reasons rather than one: node A's interior nodes were placed as *siblings* at the
+> resting camera, and `canvas.contains(node A)` was false. Fixing containment alone
+> — option (a) as written above — would have left one nesting level costing eight
+> address bits, and one bit is one doubling of zoom, so entering a space would take
+> 256× magnification and entering two would take 65 536×. **True and unusable is a
+> worse outcome than false and known-false.**
+>
+> So D45 takes (a) for *containment* — `Addr` carries a significant bit length the
+> facade computes from the key scheme, and the editor's keys become a nibble-per-level
+> hierarchy — and replaces the descend *trigger* with the space's apparent size in
+> device pixels against `View::opening_extent`. Address depth answers *who is inside
+> whom*; apparent size answers *when can you see in*. The recommendation above was
+> right about which half was structural and wrong to assume one test could be both
+> halves. `tests/nesting.rs`, five assertions, all of which can fail.
+
 ### O20 — where does draw grouping live?
 
 `Placement` is a flat list of rectangles with one implicit pipeline. The moment a
@@ -78,6 +102,17 @@ Concretely: does `Placed` grow a `kind: PrimitiveKind` (rect vs. line vs. text) 
 entirely and the presenter stays ignorant of what a "batch" is? The plan's own O20
 entry favors the former — D29 gives the presenter "grouped how," and a facade that
 invents its own grouping quietly moves that boundary.
+
+> **Decided 2026-08-28 — D46: the former, but not with an enum.** The presenter
+> authors the grouping, as this paragraph argues it should. `Placement::batches`
+> partitions `placed` into contiguous runs sharing a `primitive` key, and the key is a
+> `Box<str>`, not a `PrimitiveKind` — the set of primitives is open by construction (a
+> block author publishes a new one), R16 makes a closed enum a defect wherever the set
+> is open, F-1 counts five prior instances, and R29 names an added enum as exactly the
+> class of proposal to correct rather than merge. The suggestion above was one word
+> away from being the fifth. `Placed` gains `span: Option<(Point, Point)>` for the
+> primitives that run between two points, because a bounding box cannot say which
+> diagonal a line takes.
 
 ---
 
@@ -93,6 +128,15 @@ staleness immediately instead of leaving it for the next person who read closely
 
 Do this now, in parallel with the O23/O20 decisions — it needs no new code, only the
 binary you already confirmed shows a surface.
+
+> **Still open, 2026-08-28, and deliberately not claimed.** This is the one item in
+> this document that an automated change cannot close, and writing a status line for
+> it would be exactly the defect D41 exists to prevent. What the same change *did*
+> add is more for a person to look at: node A now opens when you zoom into it, and a
+> wire is drawn between node A and node B. The pass to do, unchanged: drag, pan,
+> zoom, select, wire and click a finding, at scale factor 1.0 and at 2.0, against the
+> running binary. `docs/STATUS.md` keeps it under **Not Yet** until someone has done
+> it and says so.
 
 ---
 
@@ -116,6 +160,20 @@ shape `binding::frame` already has and dropped — worth checking whether revivi
 properly, rather than deleting it, is the right call once there are two consumers of
 "a placement plus its scene."
 
+> **Landed 2026-08-28.** `tests/wires.rs`, five tests, and both failure modes were
+> run and seen: with the wire record not written the test fails at *"the wire is
+> placed with two endpoints"*, and with D46's batching defeated so the link falls
+> through to the quad pipeline it fails with `channel 0 was 242, wanted 31` forty
+> pixels off the line — a bounding box where a line should be. Genesis authors node B
+> **down as well as across** for that second check: with the two nodes in a row the
+> box *is* the line and no sample could tell them apart.
+>
+> **O21 did resolve here, and the answer was retire-and-replace** (D47). `frame` is
+> gone; `binding::compose(scene, view, at) -> (SceneSet, Placement)` is what the two
+> consumers wanted, and `Store::draw_with` and `Store::place_now` call it, so R27 is
+> satisfied by a caller rather than by a deletion. The name is retired, not reused
+> (R17): `frame` named a function that also submitted, and `compose` does not.
+
 ---
 
 ## 4 · E12 — undo, decided before more state piles onto an undecided model
@@ -134,6 +192,22 @@ Decide the shape now:
   record kind (camera vs. geometry vs. composition wiring).
 - This is a decision record before it's code, same as O23/O20.
 
+> **Decided 2026-08-28 — D48. The answer is the commit boundary, and it makes the
+> per-record-kind question go away.** Undo operates on **committed** history and
+> writes the previous value as a new commit; it never rewinds a revision, because the
+> charter's audit and observability both rest on revisions being append-only.
+> Abandoning a gesture in progress is `discard` — a different verb, on the pending
+> set, which R13 already bounds. The camera is outside the undo stream not by a rule
+> excluding it but because `pan_by` and `zoom_by` amend and **nothing ever commits**
+> it (D5), so the worry in the second bullet answers itself structurally. And the
+> stream is a registered derived artifact (D25, R12) rebuilt from the commit journal
+> above a session watermark, so D8's three categories stand and there is no fourth.
+>
+> A policy per record kind was the alternative, and it is the same distinction
+> restated as a table someone has to maintain — wrong the first time a kind is added
+> and nobody updates it. Stages: [`E12-UNDO.md`](./E12-UNDO.md). No status line for
+> any of them until the change that lands it writes one.
+
 ---
 
 ## 5 · E13 — the actual authoring surface
@@ -150,6 +224,13 @@ before, because:
 - Text editing is a new native block category (or several) — worth designing after
   O23 settles what depth/nesting really means, so text-in-a-space isn't designed
   against an addressing scheme about to change.
+
+> **Specified 2026-08-28: [`E13-AUTHORING-SURFACE.md`](./E13-AUTHORING-SURFACE.md).**
+> Both preconditions this section named are met — wires exist (§3) and O23 has
+> settled what nesting means (D45) — so the deliverable is a stage plan rather than
+> code, per R28: the idea is still fuzzy at the edges, and fuzzy plus code is the
+> drift mechanism. Every stage there carries a green check that can fail and an empty
+> **Verified by** cell, which under D41 is what forbids marking any of them landed.
 
 ---
 
@@ -169,14 +250,16 @@ that honestly.
 
 ## Suggested order
 
-1. **This week, in parallel:** decide O23 (write the failing test first), decide
-   O20, and do the manual six-interaction desktop verification pass.
-2. **Next:** E11 (wires render) — the second primitive, closes the last of the six
-   interactions, and is the direct, visible answer to "does it apply the actual
-   graph-like behaviour."
-3. **Then:** E12 (undo), decided before E13 adds more state kinds to retrofit.
-4. **Then:** E13 (property inspector / block palette / text) — the real authoring
-   surface.
+*Struck through where done, 2026-08-28. The one item not struck is the one that needs
+a person.*
+
+1. ~~**This week, in parallel:** decide O23 (write the failing test first), decide
+   O20~~ — both decided, D45 and D46, with the failing test written first — **and do
+   the manual six-interaction desktop verification pass** (§2, still owed).
+2. ~~**Next:** E11 (wires render)~~ — landed, `tests/wires.rs`.
+3. **Then:** E12 (undo) — ~~decided~~ (D48), stages in `E12-UNDO.md`, not yet built.
+4. **Then:** E13 (property inspector / block palette / text) — ~~scoped~~
+   (`E13-AUTHORING-SURFACE.md`), not yet built.
 5. **Throughout:** the moment any of the above is enough to build one small real
    thing through the editor, do that, and let it be the forcing function for
    whatever E13 turns out to actually need, rather than guessing ahead of it.

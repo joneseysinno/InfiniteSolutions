@@ -20,6 +20,12 @@ pub fn bootstrap_default(key: &str) -> Descriptor {
         "canvas" => Descriptor {
             fill: [0.12, 0.13, 0.16, 1.0],
         },
+        // E11. Deliberately far from `plain` in every channel, so a readback that
+        // finds wire pixels where node pixels should be cannot pass as a rounding
+        // difference — `tests/wires.rs` leans on the gap being larger than tolerance.
+        "wire" => Descriptor {
+            fill: [0.95, 0.71, 0.20, 1.0],
+        },
         // Visible, and deliberately not the background: a style key with no authored
         // row must not be indistinguishable from nothing being there
         // (`PRESENTER.md` §13 finding 8).

@@ -27,15 +27,43 @@ pub struct View {
     /// property of the view rather than a constant, because the right value depends on
     /// how fast the camera is being moved, and only the caller knows that.
     pub margin: f64,
+    /// How large a space must appear, in device pixels, before its interior is shown
+    /// (D45).
+    ///
+    /// This is the whole of *"zoom crosses the node/space seam"*, as a number. A
+    /// space whose apparent extent reaches it is entered; below it the same space is
+    /// a node in its parent's graph. It is a property of the view and not a constant
+    /// for the reason `margin` is: what counts as legible depends on what is being
+    /// drawn, and only the caller knows.
+    ///
+    /// It is **not** a comparison of address bits. Address depth says who is inside
+    /// whom; it does not say when you can see in. Conflating the two is finding 19.
+    pub opening_extent: f64,
 }
 
 impl View {
-    /// A view.
+    /// The opening extent a caller gets when it does not name one.
+    ///
+    /// Roughly the smallest square in which two nested things and the gap between
+    /// them are still distinguishable at ordinary display densities. A number, stated
+    /// once, rather than five call sites each picking their own.
+    pub const DEFAULT_OPENING_EXTENT: f64 = 256.0;
+
+    /// A view, opening spaces at [`Self::DEFAULT_OPENING_EXTENT`].
     pub const fn new(camera: Camera, surface: SurfaceRect, margin: f64) -> Self {
         Self {
             camera,
             surface,
             margin,
+            opening_extent: Self::DEFAULT_OPENING_EXTENT,
+        }
+    }
+
+    /// The same view, opening spaces at `extent` device pixels instead.
+    pub const fn opening_at(self, extent: f64) -> Self {
+        Self {
+            opening_extent: extent,
+            ..self
         }
     }
 

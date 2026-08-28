@@ -20,8 +20,17 @@ use std::sync::Arc;
 use infinite_presenter::binding::ports::Surface as Port;
 use infinite_presenter::core::{Addr, Placement, Point, SurfaceRect};
 
-/// Bytes per instance: four f32 of rectangle, four f32 of fill.
+/// Bytes per area instance: four f32 of rectangle, four f32 of fill.
 const INSTANCE_STRIDE: u64 = 32;
+
+/// Bytes per link instance: four f32 of segment, four f32 of fill, four f32 of shape
+/// (half-width, then room the next link primitive that needs it will use).
+const LINK_STRIDE: u64 = 48;
+
+/// The primitive key a link draws under (D46). The facade's half of the registry:
+/// the presenter authors the key, this file resolves it to a pipeline, and neither
+/// side names an enum (R16).
+const LINK: &str = "wire";
 
 /// The default fill for a style key with no authored row. Grey, and visible —
 /// `PRESENTER.md` §13 finding 8: a failed lookup and an empty screen must never be
@@ -69,16 +78,77 @@ fn fs(in: VsOut) -> @location(0) vec4<f32> {
 }
 "#;
 
+/// E11's second primitive. A segment, expanded to a quad about its own direction,
+/// so one instanced draw covers every wire in a batch exactly as the quad pipeline
+/// covers every rectangle.
+const LINK_SHADER: &str = r#"
+struct Inst {
+    @location(0) seg: vec4<f32>,
+    @location(1) fill: vec4<f32>,
+    @location(2) shape: vec4<f32>,
+};
+
+struct VsOut {
+    @builtin(position) pos: vec4<f32>,
+    @location(0) fill: vec4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> drawable: vec4<f32>;
+
+@vertex
+fn vs(@builtin(vertex_index) vi: u32, inst: Inst) -> VsOut {
+    let a = inst.seg.xy;
+    let b = inst.seg.zw;
+    let along = b - a;
+    let len = max(length(along), 1e-6);
+    let unit = along / len;
+    let side = vec2<f32>(-unit.y, unit.x) * max(inst.shape.x, 0.5);
+    var corner = array<vec2<f32>, 4>(
+        vec2<f32>(0.0, -1.0),
+        vec2<f32>(1.0, -1.0),
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(1.0, 1.0),
+    );
+    let c = corner[vi];
+    let logical = a + along * c.x + side * c.y;
+    let device_px = logical * drawable.z;
+    let ndc = vec2<f32>(
+        device_px.x / drawable.x * 2.0 - 1.0,
+        1.0 - device_px.y / drawable.y * 2.0,
+    );
+    var out: VsOut;
+    out.pos = vec4<f32>(ndc, 0.0, 1.0);
+    out.fill = inst.fill;
+    return out;
+}
+
+@fragment
+fn fs(in: VsOut) -> @location(0) vec4<f32> {
+    return in.fill;
+}
+"#;
+
 /// The GPU objects this file owns. Absent in the headless-arithmetic case, which is
 /// what every test before E10.1 used and what still runs when no device is attached.
 struct Gpu {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     pipeline: wgpu::RenderPipeline,
+    links: wgpu::RenderPipeline,
     bind: wgpu::BindGroup,
     uniform: wgpu::Buffer,
     instances: wgpu::Buffer,
     capacity: u64,
+    link_instances: wgpu::Buffer,
+    link_capacity: u64,
+}
+
+/// One batch, after narrowing: the pipeline it wants, and where its instances sit
+/// in the buffer that pipeline reads.
+struct Run {
+    link: bool,
+    first: u32,
+    count: u32,
 }
 
 /// The thing being drawn into.
@@ -298,34 +368,90 @@ impl Port for Surface {
 
     fn submit(&mut self, placement: &Placement) {
         // The narrowing point. f64 world → f32 device, once, here.
+        //
+        // D46: the placement arrives already grouped, so this loop selects a pipeline
+        // per batch and invents no grouping of its own. An unknown primitive key
+        // falls through to the area pipeline rather than drawing nothing — a key with
+        // no pipeline and an empty screen must not look the same (`PRESENTER.md` §13
+        // finding 8), and its bounding box is the honest fallback shape.
         let mut instances: Vec<u8> = Vec::with_capacity(placement.placed.len() * 32);
+        let mut link_instances: Vec<u8> = Vec::new();
+        let mut runs: Vec<Run> = Vec::new();
         let mut count = 0u32;
-        for item in &placement.placed {
-            let showing = item.showing();
-            if showing.is_empty() {
-                continue;
+        let mut link_count = 0u32;
+        for batch in &placement.batches {
+            let is_link = &*batch.primitive == LINK;
+            let first = if is_link { link_count } else { count };
+            let mut emitted = 0u32;
+            for item in placement
+                .placed
+                .iter()
+                .skip(batch.first)
+                .take(batch.count)
+            {
+                let showing = item.showing();
+                if showing.is_empty() {
+                    continue;
+                }
+                let fill = self.fills.get(&item.at).copied().unwrap_or(UNKNOWN_FILL);
+                match (is_link, item.span) {
+                    (true, Some((a, b))) => {
+                        // The stroke's half-width, recovered from the unclipped
+                        // bounding box `place_link` inflated by exactly that amount.
+                        // Not from `showing`: a clipped wire has a narrower box and
+                        // would come back thinner, which is a bug that only appears
+                        // once something is half off screen.
+                        let half = (a.x.min(b.x) - item.rect.min.x).max(0.5);
+                        let inst: [f32; 12] = [
+                            a.x as f32,
+                            a.y as f32,
+                            b.x as f32,
+                            b.y as f32,
+                            fill[0] as f32,
+                            fill[1] as f32,
+                            fill[2] as f32,
+                            fill[3] as f32,
+                            half as f32,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ];
+                        for n in inst {
+                            link_instances.extend_from_slice(&n.to_le_bytes());
+                        }
+                        link_count += 1;
+                    }
+                    _ => {
+                        let quad: [f32; 8] = [
+                            showing.min.x as f32,
+                            showing.min.y as f32,
+                            (showing.max.x - showing.min.x) as f32,
+                            (showing.max.y - showing.min.y) as f32,
+                            fill[0] as f32,
+                            fill[1] as f32,
+                            fill[2] as f32,
+                            fill[3] as f32,
+                        ];
+                        for n in quad {
+                            instances.extend_from_slice(&n.to_le_bytes());
+                        }
+                        count += 1;
+                    }
+                }
+                emitted += 1;
             }
-            let fill = self
-                .fills
-                .get(&item.at)
-                .copied()
-                .unwrap_or(UNKNOWN_FILL);
-            let quad: [f32; 8] = [
-                showing.min.x as f32,
-                showing.min.y as f32,
-                (showing.max.x - showing.min.x) as f32,
-                (showing.max.y - showing.min.y) as f32,
-                fill[0] as f32,
-                fill[1] as f32,
-                fill[2] as f32,
-                fill[3] as f32,
-            ];
-            for n in quad {
-                instances.extend_from_slice(&n.to_le_bytes());
+            if emitted > 0 {
+                // A link batch whose entries carried no span narrowed into the area
+                // buffer, so the run follows where the instances actually went.
+                let link = is_link && link_count > first;
+                runs.push(Run {
+                    link,
+                    first: if link { first } else { count - emitted },
+                    count: emitted,
+                });
             }
-            count += 1;
         }
-        self.narrowed = count as usize * 4;
+        self.narrowed = (count + link_count) as usize * 4;
 
         let Some(gpu) = self.gpu.as_mut() else {
             return;
@@ -350,6 +476,20 @@ impl Port for Surface {
         }
         if !instances.is_empty() {
             gpu.queue.write_buffer(&gpu.instances, 0, &instances);
+        }
+        let link_needed = u64::from(link_count).max(1) * LINK_STRIDE;
+        if link_needed > gpu.link_capacity {
+            gpu.link_capacity = link_needed.next_power_of_two();
+            gpu.link_instances = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("link instances"),
+                size: gpu.link_capacity,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        }
+        if !link_instances.is_empty() {
+            gpu.queue
+                .write_buffer(&gpu.link_instances, 0, &link_instances);
         }
         let uniform: [f32; 4] = [
             width_px as f32,
@@ -388,14 +528,20 @@ impl Port for Surface {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            if count > 0 {
-                pass.set_pipeline(&gpu.pipeline);
-                pass.set_bind_group(0, &gpu.bind, &[]);
-                pass.set_vertex_buffer(0, gpu.instances.slice(..));
-                // Four corners as a strip, one instance per placed thing. Draw order
-                // is the placement's order, which is address order within a level and
-                // level order across levels (`PRESENTER.md` §9). No z-index.
-                pass.draw(0..4, 0..count);
+            // Four corners as a strip, one instance per placed thing. Draw order is
+            // the placement's order, which is address order within a level and level
+            // order across levels (`PRESENTER.md` §9). No z-index — and the batches
+            // are a partition of that order, so drawing them in turn preserves it.
+            pass.set_bind_group(0, &gpu.bind, &[]);
+            for run in &runs {
+                if run.link {
+                    pass.set_pipeline(&gpu.links);
+                    pass.set_vertex_buffer(0, gpu.link_instances.slice(..));
+                } else {
+                    pass.set_pipeline(&gpu.pipeline);
+                    pass.set_vertex_buffer(0, gpu.instances.slice(..));
+                }
+                pass.draw(0..4, run.first..run.first + run.count);
             }
         }
         gpu.queue.submit(Some(encoder.finish()));
@@ -482,6 +628,58 @@ fn build(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, format: wgpu::Textu
         multiview_mask: None,
         cache: None,
     });
+    let link_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("link"),
+        source: wgpu::ShaderSource::Wgsl(LINK_SHADER.into()),
+    });
+    let links = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("link"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &link_shader,
+            entry_point: Some("vs"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            buffers: &[Some(wgpu::VertexBufferLayout {
+                array_stride: LINK_STRIDE,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &[
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: 0,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: 16,
+                        shader_location: 1,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: 32,
+                        shader_location: 2,
+                    },
+                ],
+            })],
+        },
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleStrip,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        fragment: Some(wgpu::FragmentState {
+            module: &link_shader,
+            entry_point: Some("fs"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        multiview_mask: None,
+        cache: None,
+    });
     let capacity = 64 * INSTANCE_STRIDE;
     let instances = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("instances"),
@@ -489,13 +687,23 @@ fn build(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, format: wgpu::Textu
         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
+    let link_capacity = 16 * LINK_STRIDE;
+    let link_instances = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("link instances"),
+        size: link_capacity,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
     Gpu {
         device,
         queue,
         pipeline,
+        links,
         bind,
         uniform,
         instances,
         capacity,
+        link_instances,
+        link_capacity,
     }
 }

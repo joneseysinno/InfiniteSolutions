@@ -22,15 +22,44 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         hosts_space: true,
         accepts: true,
         origin: [0.0, 0.0],
+        primitive: String::new(),
+        link: None,
     });
     let node = encode_space(&SpaceRecord {
         across: [0.4, 0.4, 0.0],
         down: [0.4, 0.4, 0.0],
         style: "plain".into(),
         detail_override: None,
-        hosts_space: false,
+        hosts_space: true,
         accepts: true,
         origin: [0.0, 0.0],
+        primitive: String::new(),
+        link: None,
+    });
+    // The two nodes inside node A's own space. This is the fixture D20's claim needs:
+    // a space, containing a node, which itself hosts a space that is populated. Both
+    // sit inside node A's own 0.4 × 0.4 box, in node A's coordinates.
+    let node_a1 = encode_space(&SpaceRecord {
+        across: [0.15, 0.15, 0.0],
+        down: [0.15, 0.15, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: true,
+        origin: [0.05, 0.05],
+        primitive: String::new(),
+        link: None,
+    });
+    let node_a2 = encode_space(&SpaceRecord {
+        across: [0.15, 0.15, 0.0],
+        down: [0.15, 0.15, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: true,
+        origin: [0.05, 0.22],
+        primitive: String::new(),
+        link: None,
     });
     let node_b = encode_space(&SpaceRecord {
         across: [0.4, 0.4, 0.0],
@@ -39,17 +68,46 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         detail_override: None,
         hosts_space: false,
         accepts: true,
-        origin: [0.5, 0.0],
+        // Down as well as across, so the wire E11 draws between the two nodes is a
+        // diagonal. A horizontal wire is indistinguishable from its own bounding box,
+        // and a check that cannot tell a line from a box is not a check that a line
+        // was drawn (`tests/wires.rs`).
+        origin: [0.5, 0.5],
+        primitive: String::new(),
+        link: None,
+    });
+    // E11. A hyperedge has no authored position: `across` is the stroke's width, in
+    // the canvas's own units, and `origin` is unread. `accepts` is false because
+    // nothing yet answers a click on a wire — E13's property inspector is the
+    // consumer that turns it on, and turning it on before then would be R27's defect.
+    let wire = encode_space(&SpaceRecord {
+        across: [0.012, 0.012, 0.0],
+        down: [0.012, 0.012, 0.0],
+        style: "wire".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: false,
+        origin: [0.0, 0.0],
+        primitive: "wire".into(),
+        link: Some((
+            addresses::NODE_A_KEY.to_vec(),
+            addresses::NODE_B_KEY.to_vec(),
+        )),
     });
     let plain = encode_style("plain", bootstrap_default("plain").fill);
     let canvas_style = encode_style("canvas", bootstrap_default("canvas").fill);
+    let wire_style = encode_style("wire", bootstrap_default("wire").fill);
     let behaviour = encode_composition(&behaviour());
 
     put_if(&exists, &mut put, addresses::CANVAS_KEY, &canvas);
     put_if(&exists, &mut put, addresses::NODE_A_KEY, &node);
+    put_if(&exists, &mut put, addresses::NODE_A1_KEY, &node_a1);
+    put_if(&exists, &mut put, addresses::NODE_A2_KEY, &node_a2);
     put_if(&exists, &mut put, addresses::NODE_B_KEY, &node_b);
+    put_if(&exists, &mut put, addresses::WIRE_AB_KEY, &wire);
     put_if(&exists, &mut put, addresses::STYLE_PLAIN_KEY, &plain);
     put_if(&exists, &mut put, addresses::STYLE_CANVAS_KEY, &canvas_style);
+    put_if(&exists, &mut put, addresses::STYLE_WIRE_KEY, &wire_style);
     put_if(&exists, &mut put, addresses::BEHAVIOUR_ROOT_KEY, &behaviour);
 }
 
