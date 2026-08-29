@@ -9,6 +9,7 @@ use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
 use winit::window::{Window as OsWindow, WindowId};
 
 use crate::facade::ports::Surface as Renderer;
+use crate::editor::addresses;
 use crate::facade::Store;
 use crate::portal::device::Device;
 use crate::portal::drive;
@@ -99,6 +100,14 @@ impl ApplicationHandler for App {
                     _ => 0,
                 };
                 let flags = if state == ElementState::Pressed { bit } else { 0 };
+                if button == MouseButton::Left {
+                    if state == ElementState::Pressed && self.modifiers.shift_key() {
+                        self.store.amend(addresses::WIRE_MODE_KEY, &[1]);
+                    }
+                    if state == ElementState::Released {
+                        self.store.discard_at(addresses::WIRE_MODE_KEY);
+                    }
+                }
                 if button == MouseButton::Middle {
                     self.panning = state == ElementState::Pressed;
                 }

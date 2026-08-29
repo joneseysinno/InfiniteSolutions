@@ -14,8 +14,8 @@ use infinite_presenter::core::{probe, Point};
 
 use crate::editor::blocks::{
     amend as amend_fn, commit as commit_fn, displace as displace_fn,
-    encode_selection as encode_selection_fn, gate as gate_fn, offset as offset_fn, probe_at as probe_at_fn,
-    read as read_fn,
+    encode_selection as encode_selection_fn, gate as gate_fn, offset as offset_fn,
+    probe_at as probe_at_fn, read as read_fn,
 };
 use crate::facade::addr::{compositor_addr, runtime_addr};
 use crate::facade::open::Inner;
@@ -46,6 +46,7 @@ impl Blocks {
                 "offset" => Arc::new(Offset),
                 "gate" => Arc::new(Gate),
                 "encode-selection" => Arc::new(EncodeSelection),
+                "encode-wire" => Arc::new(EncodeWire),
                 "displace" => Arc::new(Displace),
                 "set-origin" => Arc::new(SetOrigin),
                 _ => Arc::new(Idle),
@@ -155,6 +156,14 @@ fn native_signatures() -> Vec<(&'static str, Signature)> {
             "encode-selection",
             sig(&[
                 ("hit", true, "address", true),
+                ("out", false, "value", false),
+            ]),
+        ),
+        (
+            "encode-wire",
+            sig(&[
+                ("from", true, "address", false),
+                ("to", true, "address", false),
                 ("out", false, "value", false),
             ]),
         ),
@@ -330,6 +339,34 @@ impl Primitive for EncodeSelection {
     fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
         let hit = inputs.first().map(Value::payload).unwrap_or(&[]);
         vec![Value::new(Tag::new("value"), encode_selection_fn(hit))]
+    }
+}
+
+struct EncodeWire;
+
+impl Primitive for EncodeWire {
+    fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
+        let from = inputs.first().map(Value::payload).unwrap_or(&[]);
+        let to = inputs.get(1).map(Value::payload).unwrap_or(&[]);
+        if from.is_empty() || to.is_empty() {
+            return vec![Value::new(Tag::new("value"), Vec::new())];
+        }
+        let record = super::super::record::SpaceRecord {
+            across: [0.012, 0.012, 0.0],
+            down: [0.012, 0.012, 0.0],
+            style: "wire".into(),
+            detail_override: None,
+            hosts_space: false,
+            accepts: false,
+            origin: [0.0, 0.0],
+            primitive: "wire".into(),
+            link: Some((from.to_vec(), to.to_vec())),
+            text: String::new(),
+        };
+        vec![Value::new(
+            Tag::new("value"),
+            encode_space(&record),
+        )]
     }
 }
 

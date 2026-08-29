@@ -80,6 +80,18 @@ pub const INSPECTOR_DEPTH_KEY: &[u8] = &[0x12, 0x60, 0x00, 0x00];
 /// Block palette panel (E13.4). A space; templates are children under it.
 pub const PALETTE_KEY: &[u8] = &[0x13, 0x00, 0x00, 0x00];
 
+/// Toolbar panel (E13.6). Three affordances as children — not a widget layer.
+pub const TOOLBAR_KEY: &[u8] = &[0x14, 0x00, 0x00, 0x00];
+
+/// Undo/redo affordance. Left half undo, right half redo.
+pub const TOOLBAR_HISTORY_KEY: &[u8] = &[0x14, 0x10, 0x00, 0x00];
+
+/// Zoom level readout from the session camera.
+pub const TOOLBAR_ZOOM_KEY: &[u8] = &[0x14, 0x20, 0x00, 0x00];
+
+/// Run/pause toggle for the tick loop.
+pub const TOOLBAR_RUN_KEY: &[u8] = &[0x14, 0x30, 0x00, 0x00];
+
 /// Palette template: a plain node block to drag onto the canvas.
 pub const PALETTE_PLAIN_KEY: &[u8] = &[0x13, 0x10, 0x00, 0x00];
 
@@ -168,6 +180,24 @@ pub const PLACE_ADDR_KEY: &[u8] = &[0x47, 0x00, 0x00, 0x00];
 /// One-shot pulse when a palette drop commits. Cleared after each tick.
 pub const PLACE_COMMIT_KEY: &[u8] = &[0x48, 0x00, 0x00, 0x00];
 
+/// Shift-wire mode (E13.5). Set while shift is held during a pointer press.
+pub const WIRE_MODE_KEY: &[u8] = &[0x49, 0x00, 0x00, 0x00];
+
+/// Latched source node while wiring by pointer.
+pub const WIRE_FROM_KEY: &[u8] = &[0x4A, 0x00, 0x00, 0x00];
+
+/// Probed target node while wiring.
+pub const WIRE_TO_KEY: &[u8] = &[0x4B, 0x00, 0x00, 0x00];
+
+/// Minted address for the wire space record under its parent.
+pub const WIRE_ADDR_KEY: &[u8] = &[0x4C, 0x00, 0x00, 0x00];
+
+/// One-shot pulse when a wire drag commits.
+pub const WIRE_COMMIT_KEY: &[u8] = &[0x4D, 0x00, 0x00, 0x00];
+
+/// Force a tag-mismatch preview graph (tests). Cleared after each tick.
+pub const WIRE_MISMATCH_KEY: &[u8] = &[0x4E, 0x00, 0x00, 0x00];
+
 /// The session camera (E10.5, D5). Amended directly by the portal's pan/zoom —
 /// session-scoped fact, not authored geometry, so it is never read by the
 /// interpreted behaviour composition the way [`DRAG_FROM_KEY`] is.
@@ -176,8 +206,11 @@ pub const CAMERA_KEY: &[u8] = &[0x51, 0x00, 0x00, 0x00];
 /// Authored selection (E13.1). Points at the selected space's key.
 pub const SELECT_KEY: &[u8] = &[0x52, 0x00, 0x00, 0x00];
 
-/// Exclusive end of the session range (camera + selection).
-pub const SESSION_END_KEY: &[u8] = &[0x53, 0x00, 0x00, 0x00];
+/// Whether the graph tick loop is active (E13.6). Non-zero means running.
+pub const RUN_KEY: &[u8] = &[0x53, 0x00, 0x00, 0x00];
+
+/// Exclusive end of the session range (camera + selection + run).
+pub const SESSION_END_KEY: &[u8] = &[0x54, 0x00, 0x00, 0x00];
 
 /// `gate` instance for selection — passes on [`RELEASE_PULSE_KEY`].
 pub const BEHAVIOUR_SELECT_GATE_KEY: &[u8] = &[0x38, 0x00, 0x00, 0x00];
@@ -220,6 +253,18 @@ pub const BEHAVIOUR_PLACE_SET_ORIGIN_KEY: &[u8] = &[0x3D, 0x10, 0x00, 0x00];
 
 /// Fourth `gate` instance — passes on [`PLACE_COMMIT_KEY`].
 pub const BEHAVIOUR_PLACE_GATE_KEY: &[u8] = &[0x3E, 0x10, 0x00, 0x00];
+
+/// `encode-wire` instance.
+pub const BEHAVIOUR_ENCODE_WIRE_KEY: &[u8] = &[0x32, 0x20, 0x00, 0x00];
+
+/// Fifth `amend` instance — writes a minted wire record.
+pub const BEHAVIOUR_WIRE_AMEND_KEY: &[u8] = &[0x33, 0x20, 0x00, 0x00];
+
+/// Fifth `commit` instance — commits a minted wire record.
+pub const BEHAVIOUR_WIRE_COMMIT_KEY: &[u8] = &[0x34, 0x20, 0x00, 0x00];
+
+/// Fifth `gate` instance — passes on [`WIRE_COMMIT_KEY`].
+pub const BEHAVIOUR_WIRE_GATE_KEY: &[u8] = &[0x3E, 0x20, 0x00, 0x00];
 
 /// Exclusive end of the behaviour range.
 pub const BEHAVIOUR_END_KEY: &[u8] = &[0x41, 0x00, 0x00, 0x00];

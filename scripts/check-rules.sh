@@ -339,6 +339,14 @@ check E13.3 "origin edit follows canvas same frame; undo restores" \
 check E13.4 "palette drag mints child; survives restart" \
   cargo test --offline --test palette
 
+# E13.5 · wiring by pointer commits a wire; mismatch previews and zooms.
+check E13.5 "wire drag commits link; mismatch finding before release" \
+  cargo test --offline --test wire_author
+
+# E13.6 · toolbar: undo/redo, zoom readout, run/pause — three spaces, not widgets.
+check E13.6 "toolbar undo; zoom readout; run pauses tick" \
+  cargo test --offline --test toolbar
+
 echo
 if [ "$fail" -eq 0 ]; then echo "all checks passed"; else echo "findings above"; fi
 exit "$fail"

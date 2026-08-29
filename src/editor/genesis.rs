@@ -153,6 +153,54 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         link: None,
         text: "plain".into(),
     });
+    let toolbar = encode_space(&SpaceRecord {
+        across: [0.75, 0.75, 0.0],
+        down: [0.08, 0.08, 0.0],
+        style: "canvas".into(),
+        detail_override: None,
+        hosts_space: true,
+        accepts: false,
+        origin: [0.0, 0.0],
+        primitive: String::new(),
+        link: None,
+        text: String::new(),
+    });
+    let toolbar_history = encode_space(&SpaceRecord {
+        across: [0.14, 0.14, 0.0],
+        down: [0.04, 0.04, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: true,
+        origin: [0.02, 0.02],
+        primitive: "text".into(),
+        link: None,
+        text: "undo redo".into(),
+    });
+    let toolbar_zoom = encode_space(&SpaceRecord {
+        across: [0.0, 0.0, 0.0],
+        down: [0.0, 0.025, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: false,
+        origin: [0.18, 0.02],
+        primitive: "text".into(),
+        link: None,
+        text: "zoom".into(),
+    });
+    let toolbar_run = encode_space(&SpaceRecord {
+        across: [0.08, 0.08, 0.0],
+        down: [0.04, 0.04, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: true,
+        origin: [0.34, 0.02],
+        primitive: "text".into(),
+        link: None,
+        text: "run".into(),
+    });
 
     put_if(&exists, &mut put, addresses::CANVAS_KEY, &canvas);
     put_if(&exists, &mut put, addresses::NODE_A_KEY, &node);
@@ -172,6 +220,15 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         addresses::PALETTE_PLAIN_LABEL_KEY,
         &palette_label,
     );
+    put_if(&exists, &mut put, addresses::TOOLBAR_KEY, &toolbar);
+    put_if(
+        &exists,
+        &mut put,
+        addresses::TOOLBAR_HISTORY_KEY,
+        &toolbar_history,
+    );
+    put_if(&exists, &mut put, addresses::TOOLBAR_ZOOM_KEY, &toolbar_zoom);
+    put_if(&exists, &mut put, addresses::TOOLBAR_RUN_KEY, &toolbar_run);
     put_if(&exists, &mut put, addresses::STYLE_PLAIN_KEY, &plain);
     put_if(&exists, &mut put, addresses::STYLE_CANVAS_KEY, &canvas_style);
     put_if(&exists, &mut put, addresses::STYLE_WIRE_KEY, &wire_style);
@@ -182,6 +239,7 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         addresses::SELECT_KEY,
         &encode_selection(&[]),
     );
+    put_if(&exists, &mut put, addresses::RUN_KEY, &[1]);
 }
 
 fn inspector_fields() -> [(&'static [u8], Vec<u8>); 6] {
@@ -390,6 +448,41 @@ fn behaviour() -> CompositionRecord {
             port("done", false, tags::FLAG, false),
         ],
     );
+    let encode_wire = native(
+        addresses::BEHAVIOUR_ENCODE_WIRE_KEY,
+        b"encode-wire",
+        vec![
+            port("from", true, tags::ADDRESS, false),
+            port("to", true, tags::ADDRESS, false),
+            port("out", false, tags::VALUE, false),
+        ],
+    );
+    let wire_gate = native(
+        addresses::BEHAVIOUR_WIRE_GATE_KEY,
+        b"gate",
+        vec![
+            port("val", true, tags::VALUE, false),
+            port("on", true, tags::FLAG, false),
+            port("pass", false, tags::VALUE, false),
+        ],
+    );
+    let wire_amend = native(
+        addresses::BEHAVIOUR_WIRE_AMEND_KEY,
+        b"amend",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("val", true, tags::VALUE, false),
+            port("pending", false, tags::FLAG, false),
+        ],
+    );
+    let wire_commit = native(
+        addresses::BEHAVIOUR_WIRE_COMMIT_KEY,
+        b"commit",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("done", false, tags::FLAG, false),
+        ],
+    );
     CompositionRecord {
         compilable: false,
         blocks: vec![
@@ -414,6 +507,10 @@ fn behaviour() -> CompositionRecord {
             place_gate,
             place_amend,
             place_commit,
+            encode_wire,
+            wire_gate,
+            wire_amend,
+            wire_commit,
         ],
         wires: vec![
             WireRecord {
@@ -472,6 +569,14 @@ fn behaviour() -> CompositionRecord {
             WireRecord {
                 sources: vec![(addresses::BEHAVIOUR_PLACE_GATE_KEY.to_vec(), "pass".into())],
                 sinks: vec![(addresses::BEHAVIOUR_PLACE_AMEND_KEY.to_vec(), "val".into())],
+            },
+            WireRecord {
+                sources: vec![(addresses::BEHAVIOUR_ENCODE_WIRE_KEY.to_vec(), "out".into())],
+                sinks: vec![(addresses::BEHAVIOUR_WIRE_GATE_KEY.to_vec(), "val".into())],
+            },
+            WireRecord {
+                sources: vec![(addresses::BEHAVIOUR_WIRE_GATE_KEY.to_vec(), "pass".into())],
+                sinks: vec![(addresses::BEHAVIOUR_WIRE_AMEND_KEY.to_vec(), "val".into())],
             },
         ],
     }

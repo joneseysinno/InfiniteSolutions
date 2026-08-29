@@ -1674,3 +1674,42 @@ the facade would need to know the editor's allocation policy (R2).
 **Verified by.** `tests/palette.rs`.
 
 ---
+
+## D54 — Wiring by pointer uses the graph preview path · **locked** · 2026-08-28
+
+**Shift-drag between nodes amends [`GRAPH_ROOT_KEY`](src/editor/addresses.rs) for C4
+preview, then commits a minted wire space through the behaviour composition.** The
+visible wire is a canvas [`SpaceRecord`](src/facade/record.rs) with
+`primitive: "wire"`; the in-flight validation graph is the same pending composition
+record E8 used (D39).
+
+**What forced it.** E13.5 is the authoring half of E11. Drawing only genesis wires
+would leave "draw a wire" on the interaction list unimplemented; bypassing the
+composition for the commit would be F-7's second write path.
+
+**Where it lives.** [`editor/wire.rs`](src/editor/wire.rs), `encode-wire` in
+[`facade/ports/blocks.rs`](src/facade/ports/blocks.rs), shift held in
+[`portal/window.rs`](src/portal/window.rs).
+
+**Verified by.** `tests/wire_author.rs`.
+
+---
+
+## D55 — The toolbar is three affordances, not a widget layer · **locked** · 2026-08-28
+
+**§4's survivors only:** undo/redo (left/right on one history space), a zoom readout
+from the session camera, and a run/pause toggle on [`RUN_KEY`](src/editor/addresses.rs).
+Each is an authored space under [`TOOLBAR_KEY`](src/editor/addresses.rs); clicks call
+store verbs directly (like E12.6's keys), not a second composition path.
+
+**What forced it.** E13.6 is where a widget toolkit accretes. `EDITOR.md` §2.1 forbids
+`rectangle|label|panel|widget|button` blocks; the discipline is the same as the palette
+and inspector — spaces with text primitives.
+
+**Where it lives.** [`editor/toolbar.rs`](src/editor/toolbar.rs); genesis panel in
+[`genesis.rs`](src/editor/genesis.rs); pause gates `tick` in
+[`portal/drive.rs`](src/portal/drive.rs).
+
+**Verified by.** `tests/toolbar.rs`.
+
+---

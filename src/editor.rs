@@ -9,14 +9,17 @@ pub mod addresses;
 pub mod blocks;
 pub mod mint;
 pub mod tags;
+pub mod toolbar;
 
 mod genesis;
 mod inspector;
 mod palette;
 mod run;
 mod styles;
+mod wire;
 
 pub use genesis::seed;
 pub use inspector::{apply_origin, refresh as refresh_inspector};
 pub use run::{bind, run};
+pub use toolbar::refresh as refresh_toolbar;
 pub use styles::{bootstrap_default, Descriptor};

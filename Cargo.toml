@@ -99,6 +99,14 @@ path = "tests/inspector_write.rs"
 name = "palette"
 path = "tests/palette.rs"
 
+[[test]]
+name = "wire_author"
+path = "tests/wire_author.rs"
+
+[[test]]
+name = "toolbar"
+path = "tests/toolbar.rs"
+
 [workspace]
 resolver = "3"
 members = [

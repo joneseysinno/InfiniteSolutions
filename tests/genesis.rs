@@ -25,6 +25,8 @@ fn a_well_known_key_is_a_hierarchy() {
         ("CANVAS", addresses::CANVAS_KEY, 8),
         ("INSPECTOR", addresses::INSPECTOR_KEY, 8),
         ("INSPECTOR_ADDR", addresses::INSPECTOR_ADDR_KEY, 12),
+        ("TOOLBAR", addresses::TOOLBAR_KEY, 8),
+        ("TOOLBAR_HISTORY", addresses::TOOLBAR_HISTORY_KEY, 12),
         ("NODE_A", addresses::NODE_A_KEY, 12),
         ("NODE_A1", addresses::NODE_A1_KEY, 16),
         ("NODE_A2", addresses::NODE_A2_KEY, 16),
@@ -39,6 +41,7 @@ fn a_well_known_key_is_a_hierarchy() {
         ("DRAG_FROM", addresses::DRAG_FROM_KEY, 8),
         ("CAMERA", addresses::CAMERA_KEY, 8),
         ("SELECT", addresses::SELECT_KEY, 8),
+        ("RUN", addresses::RUN_KEY, 8),
         ("GRAPH_ROOT", addresses::GRAPH_ROOT_KEY, 4),
     ];
     for (name, key, want) in keys {
