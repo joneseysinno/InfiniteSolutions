@@ -1,6 +1,7 @@
 //! Drive the interpreted behaviour. Names no layer crate.
 
 use crate::editor::addresses;
+use crate::editor::app;
 use crate::editor::palette;
 use crate::editor::toolbar;
 use crate::editor::wire;
@@ -51,8 +52,10 @@ pub fn run(store: &Store) {
                             let _ = wire::begin(store, &hit);
                         }
                     }
-                } else if let Some(hit) = palette::hit_at(store, x, y) {
-                    store.amend(addresses::PALETTE_FROM_KEY, &hit);
+                } else if store.pending_at(addresses::PALETTE_FROM_KEY).is_none() {
+                    if let Some(hit) = palette::hit_at(store, x, y) {
+                        store.amend(addresses::PALETTE_FROM_KEY, &hit);
+                    }
                 }
             }
             if !wire_drag
@@ -179,6 +182,10 @@ pub fn run(store: &Store) {
         "address",
     );
     store.run_linked();
+    let release = store.pending_at(addresses::RELEASE_PULSE_KEY).is_some();
+    if release {
+        app::try_run(store);
+    }
     store.discard_at(addresses::RELEASE_PULSE_KEY);
     store.discard_at(addresses::EDIT_COMMIT_KEY);
     store.discard_at(addresses::PLACE_COMMIT_KEY);

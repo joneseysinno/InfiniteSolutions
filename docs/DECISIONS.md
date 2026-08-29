@@ -1713,3 +1713,21 @@ and inspector — spaces with text primitives.
 **Verified by.** `tests/toolbar.rs`.
 
 ---
+
+## D56 — A bump-to-total wire installs a running counter app · **locked** · 2026-08-28
+
+**Wiring [`PALETTE_BUMP_KEY`](src/editor/addresses.rs) to [`PALETTE_TOTAL_KEY`](src/editor/addresses.rs)
+on the canvas writes [`APP_ROOT_KEY`](src/editor/addresses.rs) and [`APP_LINK_KEY`](src/editor/addresses.rs).
+Clicking the bump runs a four-block graph (`read` → `increment-text` → `amend` → `commit`) at
+the total's address through [`Store::run_at`](src/facade/run.rs).
+
+**What forced it.** E13.7 closes O11: self-hosting must build something that is not the editor.
+A counter is the smallest graph that reads one input (a click) and writes one persisted record.
+
+**Where it lives.** [`editor/app.rs`](src/editor/app.rs), `increment-text` in
+[`facade/ports/blocks.rs`](src/facade/ports/blocks.rs), palette templates in
+[`genesis.rs`](src/editor/genesis.rs).
+
+**Verified by.** `tests/counter.rs`.
+
+---

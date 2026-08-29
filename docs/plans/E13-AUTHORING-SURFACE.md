@@ -1,6 +1,6 @@
 # Infinite Solutions — E13, the authoring surface
 
-> **Status:** draft 1, 2026-08-28. **E13.0–E13.6 landed 2026-08-28.** R20: every **Verified by**
+> **Status:** draft 1, 2026-08-28. **E13.0–E13.7 landed 2026-08-28.** R20: every **Verified by**
 > cell below is empty on purpose except E13.0, and D41 forbids marking any stage `landed`
 > while it stays empty.
 >
@@ -42,7 +42,7 @@ out stack traces as the error surface, and requires the four layers to be invisi
 | **E13.4** | The block palette | landed | `tests/palette.rs` | Drag a block from a palette onto the canvas and a new record exists at a **new address the editor minted under the parent's** (D45's nibble-per-level scheme, which is what makes "under" meaningful). Restart: it is still there. Its address says which space it is in |
 | **E13.5** | Wiring by pointer | landed | `tests/wire_author.rs` | Drag from one node to another and a link record is committed — the authoring half of E11, which only drew a wire that genesis had written. A mismatch raises a finding and zooms to its site (E8's path, reached by a gesture) |
 | **E13.6** | The toolbar, and what it is not | landed | `tests/toolbar.rs` | Whatever survives §4's test. A toolbar is the easiest place in this project to accrete a widget toolkit, which `EDITOR.md` §2.1 forbids and `check-rules.sh` greps for |
-| **E13.7** | One small real thing, built through the editor | not started | — | O11's actual closure. Not the editor, not a demo — something with a use, authored entirely by pointer, that runs. See §5 |
+| **E13.7** | One small real thing, built through the editor | landed | `tests/counter.rs` | O11's actual closure. Not the editor, not a demo — something with a use, authored entirely by pointer, that runs. See §5 |
 
 **E13.7 is the deliverable.** Everything above it is scaffolding for it, and a plan
 that lands E13.0–E13.6 and stops has not answered the question this stage was written

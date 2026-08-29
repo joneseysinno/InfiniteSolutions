@@ -71,6 +71,29 @@ impl Store {
             .extend(ran.findings);
     }
 
+    /// Links and interprets an authored composition at `root`.
+    pub fn run_at(&self, root: &[u8]) {
+        let defs = self.definitions().resolve(&compositor_addr(root));
+        let linked = link(&defs, &compositor_addr(root));
+        self.inner
+            .findings
+            .lock()
+            .expect("findings lock")
+            .extend(linked.findings.iter().cloned());
+        if linked.value.steps.is_empty() {
+            return;
+        }
+        let blocks = self.blocks();
+        let mut values = self.values();
+        let mut provenance = self.provenance();
+        let ran = interpret(&linked.value, &blocks, &mut values, &mut provenance);
+        self.inner
+            .findings
+            .lock()
+            .expect("findings lock")
+            .extend(ran.findings);
+    }
+
     /// The exact declared input set of an executed output (S6).
     pub fn inputs_of(&self, output: &[u8]) -> Vec<Vec<u8>> {
         ProvenancePort::inputs_of(&self.provenance(), &compositor_addr(output))

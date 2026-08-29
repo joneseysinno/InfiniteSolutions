@@ -107,6 +107,10 @@ path = "tests/wire_author.rs"
 name = "toolbar"
 path = "tests/toolbar.rs"
 
+[[test]]
+name = "counter"
+path = "tests/counter.rs"
+
 [workspace]
 resolver = "3"
 members = [

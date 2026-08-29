@@ -14,8 +14,9 @@ use infinite_presenter::core::{probe, Point};
 
 use crate::editor::blocks::{
     amend as amend_fn, commit as commit_fn, displace as displace_fn,
-    encode_selection as encode_selection_fn, gate as gate_fn, offset as offset_fn,
-    probe_at as probe_at_fn, read as read_fn,
+    encode_selection as encode_selection_fn, gate as gate_fn,
+    increment_text as increment_text_fn, offset as offset_fn, probe_at as probe_at_fn,
+    read as read_fn,
 };
 use crate::facade::addr::{compositor_addr, runtime_addr};
 use crate::facade::open::Inner;
@@ -49,6 +50,7 @@ impl Blocks {
                 "encode-wire" => Arc::new(EncodeWire),
                 "displace" => Arc::new(Displace),
                 "set-origin" => Arc::new(SetOrigin),
+                "increment-text" => Arc::new(IncrementText),
                 _ => Arc::new(Idle),
             };
             entries.push((key.into(), sig, primitive));
@@ -180,6 +182,13 @@ fn native_signatures() -> Vec<(&'static str, Signature)> {
             sig(&[
                 ("record", true, "value", true),
                 ("origin", true, "point", false),
+                ("out", false, "value", false),
+            ]),
+        ),
+        (
+            "increment-text",
+            sig(&[
+                ("val", true, "value", true),
                 ("out", false, "value", false),
             ]),
         ),
@@ -410,5 +419,17 @@ impl Primitive for SetOrigin {
             space.origin[1] = f64::from_le_bytes(origin[8..16].try_into().unwrap_or([0; 8]));
         }
         vec![Value::new(Tag::new("value"), encode_space(&space))]
+    }
+}
+
+struct IncrementText;
+
+impl Primitive for IncrementText {
+    fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
+        let val = inputs.first().map(Value::payload).unwrap_or(&[]);
+        vec![Value::new(
+            Tag::new("value"),
+            increment_text_fn(val),
+        )]
     }
 }

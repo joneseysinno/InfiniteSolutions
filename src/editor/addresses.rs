@@ -98,6 +98,18 @@ pub const PALETTE_PLAIN_KEY: &[u8] = &[0x13, 0x10, 0x00, 0x00];
 /// Label for [`PALETTE_PLAIN_KEY`].
 pub const PALETTE_PLAIN_LABEL_KEY: &[u8] = &[0x13, 0x11, 0x00, 0x00];
 
+/// Palette template: a counter total starting at zero.
+pub const PALETTE_TOTAL_KEY: &[u8] = &[0x13, 0x20, 0x00, 0x00];
+
+/// Label for [`PALETTE_TOTAL_KEY`].
+pub const PALETTE_TOTAL_LABEL_KEY: &[u8] = &[0x13, 0x21, 0x00, 0x00];
+
+/// Palette template: a bump control wired to a total.
+pub const PALETTE_BUMP_KEY: &[u8] = &[0x13, 0x30, 0x00, 0x00];
+
+/// Label for [`PALETTE_BUMP_KEY`].
+pub const PALETTE_BUMP_LABEL_KEY: &[u8] = &[0x13, 0x31, 0x00, 0x00];
+
 /// The canvas space. The one root of the screen (D45).
 pub const CANVAS_KEY: &[u8] = &[0x11, 0x00, 0x00, 0x00];
 
@@ -271,3 +283,21 @@ pub const BEHAVIOUR_END_KEY: &[u8] = &[0x41, 0x00, 0x00, 0x00];
 
 /// Authored graph being wired. A pending record here is C4's in-flight wire.
 pub const GRAPH_ROOT_KEY: &[u8] = &[0x60, 0x00, 0x00, 0x00];
+
+/// User-authored app composition (E13.7).
+pub const APP_ROOT_KEY: &[u8] = &[0x61, 0x00, 0x00, 0x00];
+
+/// Bump and total keys the app graph serves — eight bytes.
+pub const APP_LINK_KEY: &[u8] = &[0x61, 0x00, 0x00, 0x01];
+
+/// `read` instance in the counter app.
+pub const APP_READ_KEY: &[u8] = &[0x61, 0x10, 0x00, 0x00];
+
+/// `increment-text` instance in the counter app.
+pub const APP_INCREMENT_KEY: &[u8] = &[0x61, 0x20, 0x00, 0x00];
+
+/// `amend` instance in the counter app.
+pub const APP_AMEND_KEY: &[u8] = &[0x61, 0x30, 0x00, 0x00];
+
+/// `commit` instance in the counter app.
+pub const APP_COMMIT_KEY: &[u8] = &[0x61, 0x40, 0x00, 0x00];

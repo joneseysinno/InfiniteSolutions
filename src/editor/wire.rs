@@ -1,6 +1,7 @@
 //! Wiring by pointer — preview at [`addresses::GRAPH_ROOT_KEY`], commit via composition.
 
 use crate::editor::addresses;
+use crate::editor::app;
 use crate::editor::mint;
 use crate::editor::tags;
 use crate::facade::{
@@ -152,5 +153,6 @@ pub fn finish(store: &Store, to: &[u8], mismatch: bool) {
             &preview_graph(&from, to, mismatch),
         );
         store.amend(addresses::WIRE_COMMIT_KEY, &[1]);
+        app::connect(store, &from, to);
     }
 }

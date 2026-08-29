@@ -11,6 +11,7 @@ pub mod mint;
 pub mod tags;
 pub mod toolbar;
 
+mod app;
 mod genesis;
 mod inspector;
 mod palette;

@@ -347,6 +347,10 @@ check E13.5 "wire drag commits link; mismatch finding before release" \
 check E13.6 "toolbar undo; zoom readout; run pauses tick" \
   cargo test --offline --test toolbar
 
+# E13.7 · counter app authored by pointer; increments and persists.
+check E13.7 "counter increments on bump click; total survives restart" \
+  cargo test --offline --test counter
+
 echo
 if [ "$fail" -eq 0 ]; then echo "all checks passed"; else echo "findings above"; fi
 exit "$fail"

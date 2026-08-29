@@ -153,6 +153,54 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         link: None,
         text: "plain".into(),
     });
+    let palette_total = encode_space(&SpaceRecord {
+        across: [0.08, 0.08, 0.0],
+        down: [0.08, 0.08, 0.0],
+        style: "total".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: true,
+        origin: [0.14, 0.02],
+        primitive: "text".into(),
+        link: None,
+        text: "0".into(),
+    });
+    let palette_total_label = encode_space(&SpaceRecord {
+        across: [0.0, 0.0, 0.0],
+        down: [0.0, 0.025, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: false,
+        origin: [0.14, 0.10],
+        primitive: "text".into(),
+        link: None,
+        text: "total".into(),
+    });
+    let palette_bump = encode_space(&SpaceRecord {
+        across: [0.08, 0.08, 0.0],
+        down: [0.08, 0.08, 0.0],
+        style: "bump".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: true,
+        origin: [0.26, 0.02],
+        primitive: "text".into(),
+        link: None,
+        text: "+".into(),
+    });
+    let palette_bump_label = encode_space(&SpaceRecord {
+        across: [0.0, 0.0, 0.0],
+        down: [0.0, 0.025, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: false,
+        origin: [0.26, 0.10],
+        primitive: "text".into(),
+        link: None,
+        text: "bump".into(),
+    });
     let toolbar = encode_space(&SpaceRecord {
         across: [0.75, 0.75, 0.0],
         down: [0.08, 0.08, 0.0],
@@ -219,6 +267,20 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         &mut put,
         addresses::PALETTE_PLAIN_LABEL_KEY,
         &palette_label,
+    );
+    put_if(&exists, &mut put, addresses::PALETTE_TOTAL_KEY, &palette_total);
+    put_if(
+        &exists,
+        &mut put,
+        addresses::PALETTE_TOTAL_LABEL_KEY,
+        &palette_total_label,
+    );
+    put_if(&exists, &mut put, addresses::PALETTE_BUMP_KEY, &palette_bump);
+    put_if(
+        &exists,
+        &mut put,
+        addresses::PALETTE_BUMP_LABEL_KEY,
+        &palette_bump_label,
     );
     put_if(&exists, &mut put, addresses::TOOLBAR_KEY, &toolbar);
     put_if(
