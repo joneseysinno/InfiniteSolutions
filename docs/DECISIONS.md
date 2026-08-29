@@ -1634,3 +1634,43 @@ children; [`editor/inspector.rs`](src/editor/inspector.rs) refreshes their runs 
 **Verified by.** `tests/inspector.rs`.
 
 ---
+
+## D52 — Inspector writes go through the behaviour composition · **locked** · 2026-08-28
+
+**Property edits amend gesture addresses only; the selected space is written by the
+interpreted composition.** `editor/inspector.rs` may call `store.amend` on
+[`EDIT_ORIGIN_KEY`](src/editor/addresses.rs) and [`EDIT_COMMIT_KEY`](src/editor/addresses.rs)
+— never on the selected node's key. Five new behaviour blocks (`read`, `set-origin`,
+`gate`, `amend`, `commit`) patch origin when the commit pulse is set.
+
+**What forced it.** E13.3 is the second input surface (after the canvas). Calling
+`store.amend` on the selection from panel code would be F-7's shape — two write paths
+for one fact — and would bypass E6's discipline.
+
+**Where it lives.** [`set-origin`](src/facade/ports/blocks.rs) primitive;
+[`apply_origin`](src/editor/inspector.rs); edit path in
+[`genesis.rs`](src/editor/genesis.rs) and [`run.rs`](src/editor/run.rs).
+
+**Verified by.** `tests/inspector_write.rs`.
+
+---
+
+## D53 — The editor mints child addresses · **locked** · 2026-08-28
+
+**New blocks receive the next free child nibble under the drop target (O28
+single-session answer).** [`mint::next_child`](src/editor/mint.rs) scans the screen
+range; the palette drag path writes [`PLACE_ADDR_KEY`](src/editor/addresses.rs) in
+[`run.rs`](src/editor/run.rs) and the behaviour composition amends/commits the record
+there — not `store.put` from panel code.
+
+**What forced it.** E13.4 is the first gesture that creates geometry. Without D45's
+nibble-per-level scheme, "under the parent" is meaningless; without editor-side minting,
+the facade would need to know the editor's allocation policy (R2).
+
+**Where it lives.** [`PALETTE_KEY`](src/editor/addresses.rs) panel and
+[`PALETTE_PLAIN_KEY`](src/editor/addresses.rs) template in genesis; place chain in
+[`genesis.rs`](src/editor/genesis.rs).
+
+**Verified by.** `tests/palette.rs`.
+
+---

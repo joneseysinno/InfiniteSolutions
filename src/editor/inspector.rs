@@ -1,7 +1,6 @@
 //! Property inspector — reads the selection through the facade's scene view (E13.2).
-//!
-//! The panel is authored spaces and text primitives (§2.1), not blocks. This file
-//! names no store type and never decodes space records for the selection itself.
+//! Inspector edits amend gesture addresses only; the behaviour composition writes
+//! the selected space (E13.3).
 
 use crate::editor::addresses;
 use crate::facade::{encode_space, SpaceRecord, Store};
@@ -45,6 +44,16 @@ pub fn refresh(store: &Store) {
     {
         store.put(*key, &encode_space(&text_field(origin_y, text)));
     }
+}
+
+/// Queues an origin edit. Only [`EDIT_ORIGIN_KEY`] and [`EDIT_COMMIT_KEY`] are
+/// amended — never the selected node's record.
+pub fn apply_origin(store: &Store, x: f64, y: f64) {
+    let mut origin = Vec::with_capacity(16);
+    origin.extend_from_slice(&x.to_le_bytes());
+    origin.extend_from_slice(&y.to_le_bytes());
+    store.amend(addresses::EDIT_ORIGIN_KEY, &origin);
+    store.amend(addresses::EDIT_COMMIT_KEY, &[1]);
 }
 
 fn text_field(origin_y: f64, run: &str) -> SpaceRecord {

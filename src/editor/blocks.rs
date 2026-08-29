@@ -14,6 +14,7 @@ mod gate;
 mod offset;
 mod probe_at;
 mod read;
+mod set_origin;
 
 pub use amend::amend;
 pub use commit::commit;
@@ -23,3 +24,4 @@ pub use gate::gate;
 pub use offset::offset;
 pub use probe_at::probe_at;
 pub use read::read;
+pub use set_origin::set_origin;

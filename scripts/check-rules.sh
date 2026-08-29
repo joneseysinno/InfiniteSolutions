@@ -331,6 +331,14 @@ check E13.1 "selection survives restart; Placed has no selected field" \
 check E13.2 "inspector fields match scene; inspector names no store type" \
   cargo test --offline --test inspector
 
+# E13.3 · inspector edits go through the behaviour composition, not direct amend.
+check E13.3 "origin edit follows canvas same frame; undo restores" \
+  cargo test --offline --test inspector_write
+
+# E13.4 · palette drag mints a child address under the parent; survives restart.
+check E13.4 "palette drag mints child; survives restart" \
+  cargo test --offline --test palette
+
 echo
 if [ "$fail" -eq 0 ]; then echo "all checks passed"; else echo "findings above"; fi
 exit "$fail"

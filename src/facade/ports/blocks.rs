@@ -14,7 +14,8 @@ use infinite_presenter::core::{probe, Point};
 
 use crate::editor::blocks::{
     amend as amend_fn, commit as commit_fn, displace as displace_fn,
-    encode_selection as encode_selection_fn, gate as gate_fn, offset as offset_fn, probe_at as probe_at_fn, read as read_fn,
+    encode_selection as encode_selection_fn, gate as gate_fn, offset as offset_fn, probe_at as probe_at_fn,
+    read as read_fn,
 };
 use crate::facade::addr::{compositor_addr, runtime_addr};
 use crate::facade::open::Inner;
@@ -46,6 +47,7 @@ impl Blocks {
                 "gate" => Arc::new(Gate),
                 "encode-selection" => Arc::new(EncodeSelection),
                 "displace" => Arc::new(Displace),
+                "set-origin" => Arc::new(SetOrigin),
                 _ => Arc::new(Idle),
             };
             entries.push((key.into(), sig, primitive));
@@ -161,6 +163,14 @@ fn native_signatures() -> Vec<(&'static str, Signature)> {
             sig(&[
                 ("record", true, "value", true),
                 ("delta", true, "point", true),
+                ("out", false, "value", false),
+            ]),
+        ),
+        (
+            "set-origin",
+            sig(&[
+                ("record", true, "value", true),
+                ("origin", true, "point", false),
                 ("out", false, "value", false),
             ]),
         ),
@@ -344,6 +354,23 @@ impl Primitive for Displace {
         if next.len() >= 16 {
             space.origin[0] = f64::from_le_bytes(next[0..8].try_into().unwrap_or([0; 8]));
             space.origin[1] = f64::from_le_bytes(next[8..16].try_into().unwrap_or([0; 8]));
+        }
+        vec![Value::new(Tag::new("value"), encode_space(&space))]
+    }
+}
+
+struct SetOrigin;
+
+impl Primitive for SetOrigin {
+    fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
+        let record = inputs.first().map(Value::payload).unwrap_or(&[]);
+        let origin = inputs.get(1).map(Value::payload).unwrap_or(&[]);
+        let Some(mut space) = decode_space(record) else {
+            return vec![Value::new(Tag::new("value"), record.to_vec())];
+        };
+        if origin.len() >= 16 {
+            space.origin[0] = f64::from_le_bytes(origin[0..8].try_into().unwrap_or([0; 8]));
+            space.origin[1] = f64::from_le_bytes(origin[8..16].try_into().unwrap_or([0; 8]));
         }
         vec![Value::new(Tag::new("value"), encode_space(&space))]
     }

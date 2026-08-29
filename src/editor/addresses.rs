@@ -77,6 +77,15 @@ pub const INSPECTOR_ORIGIN_KEY: &[u8] = &[0x12, 0x50, 0x00, 0x00];
 /// Inspector field: depth from the address (D45).
 pub const INSPECTOR_DEPTH_KEY: &[u8] = &[0x12, 0x60, 0x00, 0x00];
 
+/// Block palette panel (E13.4). A space; templates are children under it.
+pub const PALETTE_KEY: &[u8] = &[0x13, 0x00, 0x00, 0x00];
+
+/// Palette template: a plain node block to drag onto the canvas.
+pub const PALETTE_PLAIN_KEY: &[u8] = &[0x13, 0x10, 0x00, 0x00];
+
+/// Label for [`PALETTE_PLAIN_KEY`].
+pub const PALETTE_PLAIN_LABEL_KEY: &[u8] = &[0x13, 0x11, 0x00, 0x00];
+
 /// The canvas space. The one root of the screen (D45).
 pub const CANVAS_KEY: &[u8] = &[0x11, 0x00, 0x00, 0x00];
 
@@ -135,14 +144,29 @@ pub const BEHAVIOUR_GATE_KEY: &[u8] = &[0x36, 0x00, 0x00, 0x00];
 /// `displace` instance.
 pub const BEHAVIOUR_DISPLACE_KEY: &[u8] = &[0x37, 0x00, 0x00, 0x00];
 
-/// Exclusive end of the behaviour range.
-pub const BEHAVIOUR_END_KEY: &[u8] = &[0x40, 0x00, 0x00, 0x00];
-
 /// Press-origin for a drag in progress. Latched while the button is down.
 pub const DRAG_FROM_KEY: &[u8] = &[0x41, 0x00, 0x00, 0x00];
 
 /// One-shot pulse on pointer release. Cleared after each behaviour tick.
 pub const RELEASE_PULSE_KEY: &[u8] = &[0x42, 0x00, 0x00, 0x00];
+
+/// Pending origin for an inspector edit (E13.3). Sixteen bytes: x then y.
+pub const EDIT_ORIGIN_KEY: &[u8] = &[0x43, 0x00, 0x00, 0x00];
+
+/// One-shot pulse when an inspector edit is committed. Cleared after each tick.
+pub const EDIT_COMMIT_KEY: &[u8] = &[0x44, 0x00, 0x00, 0x00];
+
+/// Latched palette template while a block drag is in progress (E13.4).
+pub const PALETTE_FROM_KEY: &[u8] = &[0x45, 0x00, 0x00, 0x00];
+
+/// Drop origin for a palette placement. Sixteen bytes: x then y in parent space.
+pub const PLACE_ORIGIN_KEY: &[u8] = &[0x46, 0x00, 0x00, 0x00];
+
+/// Minted address for the block being placed.
+pub const PLACE_ADDR_KEY: &[u8] = &[0x47, 0x00, 0x00, 0x00];
+
+/// One-shot pulse when a palette drop commits. Cleared after each tick.
+pub const PLACE_COMMIT_KEY: &[u8] = &[0x48, 0x00, 0x00, 0x00];
 
 /// The session camera (E10.5, D5). Amended directly by the portal's pan/zoom —
 /// session-scoped fact, not authored geometry, so it is never read by the
@@ -166,6 +190,39 @@ pub const BEHAVIOUR_SELECT_AMEND_KEY: &[u8] = &[0x3A, 0x00, 0x00, 0x00];
 
 /// Second `commit` instance — commits [`SELECT_KEY`].
 pub const BEHAVIOUR_SELECT_COMMIT_KEY: &[u8] = &[0x3B, 0x00, 0x00, 0x00];
+
+/// `read` instance for inspector edits — addr is the selection, not the probe hit.
+pub const BEHAVIOUR_EDIT_READ_KEY: &[u8] = &[0x3C, 0x00, 0x00, 0x00];
+
+/// `set-origin` instance.
+pub const BEHAVIOUR_SET_ORIGIN_KEY: &[u8] = &[0x3D, 0x00, 0x00, 0x00];
+
+/// `gate` instance — passes on [`EDIT_COMMIT_KEY`].
+pub const BEHAVIOUR_EDIT_GATE_KEY: &[u8] = &[0x3E, 0x00, 0x00, 0x00];
+
+/// Third `amend` instance — writes the selected space after an inspector edit.
+pub const BEHAVIOUR_EDIT_AMEND_KEY: &[u8] = &[0x3F, 0x00, 0x00, 0x00];
+
+/// Third `commit` instance — commits the selected space after an inspector edit.
+pub const BEHAVIOUR_EDIT_COMMIT_KEY: &[u8] = &[0x40, 0x00, 0x00, 0x00];
+
+/// `read` instance for palette placement — addr is [`PALETTE_FROM_KEY`].
+pub const BEHAVIOUR_PLACE_READ_KEY: &[u8] = &[0x32, 0x10, 0x00, 0x00];
+
+/// Third `amend` instance — writes a minted block onto the canvas.
+pub const BEHAVIOUR_PLACE_AMEND_KEY: &[u8] = &[0x33, 0x10, 0x00, 0x00];
+
+/// Fourth `commit` instance — commits a minted block.
+pub const BEHAVIOUR_PLACE_COMMIT_KEY: &[u8] = &[0x34, 0x10, 0x00, 0x00];
+
+/// Second `set-origin` instance — positions a palette template at the drop point.
+pub const BEHAVIOUR_PLACE_SET_ORIGIN_KEY: &[u8] = &[0x3D, 0x10, 0x00, 0x00];
+
+/// Fourth `gate` instance — passes on [`PLACE_COMMIT_KEY`].
+pub const BEHAVIOUR_PLACE_GATE_KEY: &[u8] = &[0x3E, 0x10, 0x00, 0x00];
+
+/// Exclusive end of the behaviour range.
+pub const BEHAVIOUR_END_KEY: &[u8] = &[0x41, 0x00, 0x00, 0x00];
 
 /// Authored graph being wired. A pending record here is C4's in-flight wire.
 pub const GRAPH_ROOT_KEY: &[u8] = &[0x60, 0x00, 0x00, 0x00];

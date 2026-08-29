@@ -117,6 +117,42 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         text: String::new(),
     });
     let inspector_rows = inspector_fields();
+    let palette = encode_space(&SpaceRecord {
+        across: [0.75, 0.75, 0.0],
+        down: [0.15, 0.15, 0.0],
+        style: "canvas".into(),
+        detail_override: None,
+        hosts_space: true,
+        accepts: false,
+        origin: [0.0, 0.85],
+        primitive: String::new(),
+        link: None,
+        text: String::new(),
+    });
+    let palette_plain = encode_space(&SpaceRecord {
+        across: [0.08, 0.08, 0.0],
+        down: [0.08, 0.08, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: true,
+        origin: [0.02, 0.03],
+        primitive: String::new(),
+        link: None,
+        text: String::new(),
+    });
+    let palette_label = encode_space(&SpaceRecord {
+        across: [0.0, 0.0, 0.0],
+        down: [0.0, 0.025, 0.0],
+        style: "plain".into(),
+        detail_override: None,
+        hosts_space: false,
+        accepts: false,
+        origin: [0.02, 0.10],
+        primitive: "text".into(),
+        link: None,
+        text: "plain".into(),
+    });
 
     put_if(&exists, &mut put, addresses::CANVAS_KEY, &canvas);
     put_if(&exists, &mut put, addresses::NODE_A_KEY, &node);
@@ -128,6 +164,14 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
     for (key, row) in inspector_rows {
         put_if(&exists, &mut put, key, &row);
     }
+    put_if(&exists, &mut put, addresses::PALETTE_KEY, &palette);
+    put_if(&exists, &mut put, addresses::PALETTE_PLAIN_KEY, &palette_plain);
+    put_if(
+        &exists,
+        &mut put,
+        addresses::PALETTE_PLAIN_LABEL_KEY,
+        &palette_label,
+    );
     put_if(&exists, &mut put, addresses::STYLE_PLAIN_KEY, &plain);
     put_if(&exists, &mut put, addresses::STYLE_CANVAS_KEY, &canvas_style);
     put_if(&exists, &mut put, addresses::STYLE_WIRE_KEY, &wire_style);
@@ -260,6 +304,92 @@ fn behaviour() -> CompositionRecord {
             port("done", false, tags::FLAG, false),
         ],
     );
+    let edit_read = native(
+        addresses::BEHAVIOUR_EDIT_READ_KEY,
+        b"read",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("val", false, tags::VALUE, false),
+        ],
+    );
+    let set_origin = native(
+        addresses::BEHAVIOUR_SET_ORIGIN_KEY,
+        b"set-origin",
+        vec![
+            port("record", true, tags::VALUE, true),
+            port("origin", true, tags::POINT, false),
+            port("out", false, tags::VALUE, false),
+        ],
+    );
+    let edit_gate = native(
+        addresses::BEHAVIOUR_EDIT_GATE_KEY,
+        b"gate",
+        vec![
+            port("val", true, tags::VALUE, false),
+            port("on", true, tags::FLAG, false),
+            port("pass", false, tags::VALUE, false),
+        ],
+    );
+    let edit_amend = native(
+        addresses::BEHAVIOUR_EDIT_AMEND_KEY,
+        b"amend",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("val", true, tags::VALUE, false),
+            port("pending", false, tags::FLAG, false),
+        ],
+    );
+    let edit_commit = native(
+        addresses::BEHAVIOUR_EDIT_COMMIT_KEY,
+        b"commit",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("done", false, tags::FLAG, false),
+        ],
+    );
+    let place_read = native(
+        addresses::BEHAVIOUR_PLACE_READ_KEY,
+        b"read",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("val", false, tags::VALUE, false),
+        ],
+    );
+    let place_set_origin = native(
+        addresses::BEHAVIOUR_PLACE_SET_ORIGIN_KEY,
+        b"set-origin",
+        vec![
+            port("record", true, tags::VALUE, true),
+            port("origin", true, tags::POINT, false),
+            port("out", false, tags::VALUE, false),
+        ],
+    );
+    let place_gate = native(
+        addresses::BEHAVIOUR_PLACE_GATE_KEY,
+        b"gate",
+        vec![
+            port("val", true, tags::VALUE, false),
+            port("on", true, tags::FLAG, false),
+            port("pass", false, tags::VALUE, false),
+        ],
+    );
+    let place_amend = native(
+        addresses::BEHAVIOUR_PLACE_AMEND_KEY,
+        b"amend",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("val", true, tags::VALUE, false),
+            port("pending", false, tags::FLAG, false),
+        ],
+    );
+    let place_commit = native(
+        addresses::BEHAVIOUR_PLACE_COMMIT_KEY,
+        b"commit",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("done", false, tags::FLAG, false),
+        ],
+    );
     CompositionRecord {
         compilable: false,
         blocks: vec![
@@ -274,6 +404,16 @@ fn behaviour() -> CompositionRecord {
             encode_selection,
             select_amend,
             select_commit,
+            edit_read,
+            set_origin,
+            edit_gate,
+            edit_amend,
+            edit_commit,
+            place_read,
+            place_set_origin,
+            place_gate,
+            place_amend,
+            place_commit,
         ],
         wires: vec![
             WireRecord {
@@ -308,6 +448,30 @@ fn behaviour() -> CompositionRecord {
             WireRecord {
                 sources: vec![(addresses::BEHAVIOUR_SELECT_GATE_KEY.to_vec(), "pass".into())],
                 sinks: vec![(addresses::BEHAVIOUR_SELECT_AMEND_KEY.to_vec(), "val".into())],
+            },
+            WireRecord {
+                sources: vec![(addresses::BEHAVIOUR_EDIT_READ_KEY.to_vec(), "val".into())],
+                sinks: vec![(addresses::BEHAVIOUR_SET_ORIGIN_KEY.to_vec(), "record".into())],
+            },
+            WireRecord {
+                sources: vec![(addresses::BEHAVIOUR_SET_ORIGIN_KEY.to_vec(), "out".into())],
+                sinks: vec![(addresses::BEHAVIOUR_EDIT_GATE_KEY.to_vec(), "val".into())],
+            },
+            WireRecord {
+                sources: vec![(addresses::BEHAVIOUR_EDIT_GATE_KEY.to_vec(), "pass".into())],
+                sinks: vec![(addresses::BEHAVIOUR_EDIT_AMEND_KEY.to_vec(), "val".into())],
+            },
+            WireRecord {
+                sources: vec![(addresses::BEHAVIOUR_PLACE_READ_KEY.to_vec(), "val".into())],
+                sinks: vec![(addresses::BEHAVIOUR_PLACE_SET_ORIGIN_KEY.to_vec(), "record".into())],
+            },
+            WireRecord {
+                sources: vec![(addresses::BEHAVIOUR_PLACE_SET_ORIGIN_KEY.to_vec(), "out".into())],
+                sinks: vec![(addresses::BEHAVIOUR_PLACE_GATE_KEY.to_vec(), "val".into())],
+            },
+            WireRecord {
+                sources: vec![(addresses::BEHAVIOUR_PLACE_GATE_KEY.to_vec(), "pass".into())],
+                sinks: vec![(addresses::BEHAVIOUR_PLACE_AMEND_KEY.to_vec(), "val".into())],
             },
         ],
     }

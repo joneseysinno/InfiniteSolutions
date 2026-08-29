@@ -91,6 +91,14 @@ path = "tests/selection.rs"
 name = "inspector"
 path = "tests/inspector.rs"
 
+[[test]]
+name = "inspector_write"
+path = "tests/inspector_write.rs"
+
+[[test]]
+name = "palette"
+path = "tests/palette.rs"
+
 [workspace]
 resolver = "3"
 members = [
