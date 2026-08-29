@@ -70,7 +70,7 @@ pub(crate) struct Inner {
     pub mint_seed: Mutex<crate::editor::mint::MintSeed>,
 }
 
-/// Opens the store at `dir`, registering the editor's 1-D space if needed.
+/// Opens the store at `dir`, registering the editor's 4-D space if needed.
 pub fn open(dir: impl AsRef<Path>) -> Result<Store, EngineError> {
     open_with_options(dir, OpenOptions::default())
 }
