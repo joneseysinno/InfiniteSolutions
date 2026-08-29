@@ -15,6 +15,8 @@ pub fn ranges(_view: &View) -> Vec<(Addr, Addr)> {
 }
 
 /// The rebuild function the facade hands to the runtime: [`place`].
+///
+/// Artifact rebuild has no frame history, so prior levels are `None`.
 pub fn rebuild(scene: &SceneSet, view: &View) -> Placement {
-    place(scene, view)
+    place(scene, view, None)
 }

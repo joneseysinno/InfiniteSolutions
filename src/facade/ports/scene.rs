@@ -41,6 +41,7 @@ impl Port for Scene {
             }
         }
         let mut set = SceneSet::new(at);
+        let glyphs = Glyphs::new();
         for (bytes, payload) in rows {
             let record = if let Some(r) = crate::facade::record::decode_space(&payload) {
                 r
@@ -67,7 +68,6 @@ impl Port for Scene {
             } else {
                 record.primitive.into_boxed_str()
             };
-            let glyphs = Glyphs::new();
             let em = record.down[1].max(record.down[0]).max(1e-12);
             let (across, down) = if &*primitive == TEXT {
                 let ink = GlyphsPort::measure(&glyphs, &record.text, em);

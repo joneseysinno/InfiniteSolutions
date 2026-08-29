@@ -23,10 +23,18 @@ use crate::core::{place, Addr, Placement, Revision, SceneSet, View};
 ///
 /// Two steps, and the third — submitting — is deliberately not here. The caller owns
 /// it because the caller owns the `Surface` and the meaning of a style key.
-pub fn compose(scene: &dyn Scene, view: &View, at: Revision) -> (SceneSet, Placement) {
+///
+/// `prior` is the previous frame's placement, so [`place`] can thread last-drawn
+/// levels into hysteresis. The first frame passes `None`.
+pub fn compose(
+    scene: &dyn Scene,
+    view: &View,
+    at: Revision,
+    prior: Option<&Placement>,
+) -> (SceneSet, Placement) {
     let start = Addr::new(Vec::new());
     let end = Addr::new(vec![0xFF; 8]);
     let set = scene.placed_in(&start, &end, at);
-    let placement = place(&set, view);
+    let placement = place(&set, view, prior);
     (set, placement)
 }

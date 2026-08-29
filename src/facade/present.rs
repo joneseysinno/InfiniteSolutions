@@ -232,7 +232,8 @@ impl Store {
         let camera = ScenePort::camera(&scene, &crate::facade::presenter_addr(&[0, 0, 0, 1]), at)
             .unwrap_or_else(|| self.camera());
         let view = View::new(camera, geometry, 0.0);
-        let (set, placement) = compose(&scene, &view, at);
+        let prior = self.inner.last_placement.lock().expect("placement lock").clone();
+        let (set, placement) = compose(&scene, &view, at, prior.as_ref());
 
         let styles = self.styles();
         let mut fills = BTreeMap::new();
@@ -289,7 +290,8 @@ impl Store {
         let scene = self.scene();
         let at = Revision::new(self.inner.db.stable_revision().legacy_sequence());
         let view = View::new(self.camera(), geometry, 0.0);
-        let (_set, placement) = compose(&scene, &view, at);
+        let prior = self.inner.last_placement.lock().expect("placement lock").clone();
+        let (_set, placement) = compose(&scene, &view, at, prior.as_ref());
         self.record_findings(&placement);
         *self.inner.last_placement.lock().expect("placement lock") = Some(placement.clone());
         placement

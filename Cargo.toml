@@ -84,6 +84,10 @@ name = "text"
 path = "tests/text.rs"
 
 [[test]]
+name = "readable_text"
+path = "tests/readable_text.rs"
+
+[[test]]
 name = "selection"
 path = "tests/selection.rs"
 
@@ -143,6 +147,10 @@ wgpu = "30"
 # times at window creation (D42) — never on the tick path, which R8 and L1 forbid
 # and `check-rules.sh` greps `portal/drive.rs` for.
 pollster = "0.4"
+# E14 — shaped text behind the Glyphs port (R-F). Same versions Innovator proved
+# against wgpu 30. Graphics crates stay in facade ports only (D29).
+glyphon = "0.12"
+cosmic-text = "0.19"
 
 [dev-dependencies]
 tempfile = "3"

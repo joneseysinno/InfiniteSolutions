@@ -230,6 +230,8 @@ check S4 "agreement test" \
   cargo test -p infinite-presenter --offline --test agreement
 check S5 "hysteresis sweep" \
   cargo test -p infinite-presenter --offline --test hysteresis
+check E14.1 "hysteresis reaches place through a real View" \
+  cargo test -p infinite-presenter --offline --test hysteresis_live
 check S6 "probe is self-sufficient" \
   cargo test -p infinite-presenter --offline --test probe
 
@@ -249,9 +251,15 @@ check R2  "no layer crate named outside src/facade" \
 check R2  "main.rs is thin" \
   bash -c '[ "$(grep -vcE "^\s*(//|$)" src/main.rs)" -le 60 ]'
 
-# D29 · one narrowing point, and it is the Surface implementation.
-check D29 "f32 appears only in facade/ports/surface.rs" \
-  bash -c '! ( find src -name "*.rs" ! -path "src/facade/ports/surface.rs" -print0 \
+# D29 · f32 narrowing lives in the Surface implementation; glyphs/text may use
+# f32 because glyphon and cosmic-text are f32 APIs (E14, R-F). No other src file.
+check D29 "f32 appears only in facade ports surface/glyphs/text" \
+  bash -c '! ( find src -name "*.rs" \
+               ! -path "src/facade/ports/surface.rs" \
+               ! -path "src/facade/ports/glyphs.rs" \
+               ! -path "src/facade/ports/text/*" \
+               ! -path "src/facade/ports/text.rs" \
+               -print0 \
                | xargs -0 sed "s://[/!]*.*::" | grep -q "f32" )'
 
 # D30 / L5 · the app mints no identity either. Every reference is an address.
@@ -322,6 +330,10 @@ check E12 "undo/redo are new commits; discard is the other verb" \
 # E13.0 · a third primitive draws text measured through the Glyphs port.
 check E13.0 "text reaches the screen at two scale factors" \
   cargo test --offline --test text
+
+# E14 · a real font: every digit and mixed case has distinct ink (finding 23).
+check E14 "every digit and mixed case has distinct ink" \
+  cargo test --offline --test readable_text
 
 # E13.1 · selection is an authored record at SELECT_KEY, not a flag on Placed.
 check E13.1 "selection survives restart; Placed has no selected field" \

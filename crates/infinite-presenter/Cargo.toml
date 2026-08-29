@@ -23,6 +23,10 @@ name = "hysteresis"
 path = "tests/hysteresis.rs"
 
 [[test]]
+name = "hysteresis_live"
+path = "tests/hysteresis_live.rs"
+
+[[test]]
 name = "probe"
 path = "tests/probe.rs"
 

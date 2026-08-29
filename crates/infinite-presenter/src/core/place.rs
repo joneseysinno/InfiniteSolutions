@@ -14,10 +14,14 @@ use crate::core::view::View;
 
 /// Places a scene for a view.
 ///
-/// Pure: no I/O, no clock, no store, no surface. Both arguments are shared references
+/// Pure: no I/O, no clock, no store, no surface. Arguments are shared references
 /// and there is no `&mut` anywhere in the signature, so *derived state never writes
 /// back into the definition it derives from* (R5) is enforced by the compiler.
-pub fn place(scene: &SceneSet, view: &View) -> Placement {
+///
+/// `prior` is the placement from the previous frame. When present, each address's
+/// last drawn level is threaded into [`detail`] so the asymmetric dead band applies
+/// (finding 20). The first frame passes `None`.
+pub fn place(scene: &SceneSet, view: &View, prior: Option<&Placement>) -> Placement {
     let mut out = Placement {
         placed: Vec::new(),
         batches: Vec::new(),
@@ -32,8 +36,12 @@ pub fn place(scene: &SceneSet, view: &View) -> Placement {
         .filter(|item| !scene.iter().any(|other| other.at.contains(&item.at) && other.at != item.at))
         .map(|item| item.at.clone())
         .collect();
-    place_group(scene, view, &roots, embedding, None, floor, true, &mut out);
+    place_group(scene, view, &roots, embedding, None, floor, true, prior, &mut out);
     out
+}
+
+fn prior_level(prior: Option<&Placement>, at: &Addr) -> Option<u32> {
+    prior?.placed.iter().find(|p| p.at == *at).map(|p| p.level)
 }
 
 fn surface_floor(view: &View) -> u32 {
@@ -101,6 +109,7 @@ fn place_group(
     clip: Option<Rect>,
     floor: u32,
     stack_at_origin: bool,
+    prior: Option<&Placement>,
     out: &mut Placement,
 ) {
     if addrs.is_empty() {
@@ -137,7 +146,12 @@ fn place_group(
             Some(c) => rect.intersect(c),
             None => rect,
         };
-        let level = detail(view.camera.zoom, item.detail_override, floor, None);
+        let level = detail(
+            view.camera.zoom,
+            item.detail_override,
+            floor,
+            prior_level(prior, &item.at),
+        );
         if showing.is_empty() || !overlaps_surface(&showing, view) {
             x += w;
             continue;
@@ -171,6 +185,7 @@ fn place_group(
                     Some(showing),
                     floor,
                     false,
+                    prior,
                     out,
                 );
             }
@@ -178,7 +193,7 @@ fn place_group(
         x += w;
     }
     for item in links {
-        place_link(view, item, clip, floor, out);
+        place_link(view, item, clip, floor, prior, out);
     }
 }
 
@@ -194,6 +209,7 @@ fn place_link(
     item: &Placeable,
     clip: Option<Rect>,
     floor: u32,
+    prior: Option<&Placement>,
     out: &mut Placement,
 ) {
     let Some((from, to)) = item.link.as_ref() else {
@@ -229,7 +245,12 @@ fn place_link(
             at: item.at.clone(),
             rect,
             span: Some((a, b)),
-            level: detail(view.camera.zoom, item.detail_override, floor, None),
+            level: detail(
+                view.camera.zoom,
+                item.detail_override,
+                floor,
+                prior_level(prior, &item.at),
+            ),
             clip,
             accepts: item.accepts,
         },

@@ -20,7 +20,7 @@ use std::sync::Arc;
 use infinite_presenter::binding::ports::Surface as Port;
 use infinite_presenter::core::{Addr, Placement, Point, SurfaceRect, TEXT};
 
-use crate::facade::ports::Glyphs;
+use crate::facade::ports::text::TextRenderer;
 
 /// Bytes per area instance: four f32 of rectangle, four f32 of fill.
 const INSTANCE_STRIDE: u64 = 32;
@@ -162,8 +162,10 @@ pub struct Surface {
     target_px: (u32, u32),
     clear: [f64; 4],
     fills: BTreeMap<Addr, [f64; 4]>,
-    /// Address → run, for the text primitive batch (E13.0).
+    /// Address → run, for the text primitive batch (E13.0 / E14).
     text_runs: BTreeMap<Addr, Box<str>>,
+    /// Shaped-text rasteriser (E14). Absent when no device is attached.
+    text: Option<TextRenderer>,
     /// Owned only by [`Self::offscreen`], so [`Self::read_back`] has something to copy.
     offscreen: Option<wgpu::Texture>,
     /// Last frame, after narrowing. Kept so a test can see the f32 path ran.
@@ -193,6 +195,7 @@ impl Surface {
             clear: [0.0, 0.0, 0.0, 1.0],
             fills: BTreeMap::new(),
             text_runs: BTreeMap::new(),
+            text: None,
             offscreen: None,
             narrowed: 0,
         }
@@ -208,6 +211,7 @@ impl Surface {
         queue: Arc<wgpu::Queue>,
         format: wgpu::TextureFormat,
     ) -> Self {
+        let text = TextRenderer::new(&device, &queue, format);
         let gpu = build(device, queue, format);
         Self {
             geometry: SurfaceRect::new(Point::ORIGIN, Point::new(800.0, 600.0), 1.0),
@@ -217,6 +221,7 @@ impl Surface {
             clear: [0.0, 0.0, 0.0, 1.0],
             fills: BTreeMap::new(),
             text_runs: BTreeMap::new(),
+            text: Some(text),
             offscreen: None,
             narrowed: 0,
         }
@@ -385,11 +390,14 @@ impl Port for Surface {
         // falls through to the area pipeline rather than drawing nothing — a key with
         // no pipeline and an empty screen must not look the same (`PRESENTER.md` §13
         // finding 8), and its bounding box is the honest fallback shape.
+        //
+        // E14: text is queued for glyphon rather than expanded to ink-cell quads.
         let mut instances: Vec<u8> = Vec::with_capacity(placement.placed.len() * 32);
         let mut link_instances: Vec<u8> = Vec::new();
         let mut runs: Vec<Run> = Vec::new();
         let mut count = 0u32;
         let mut link_count = 0u32;
+        let mut text_draws: Vec<TextDraw> = Vec::new();
         for batch in &placement.batches {
             let is_link = &*batch.primitive == LINK;
             let is_text = &*batch.primitive == TEXT;
@@ -438,22 +446,27 @@ impl Port for Surface {
                             continue;
                         };
                         let em = (showing.max.y - showing.min.y).max(1e-12);
-                        for cell in Glyphs::ink_cells(run, showing.min, em) {
-                            let quad: [f32; 8] = [
-                                cell.min.x as f32,
-                                cell.min.y as f32,
-                                (cell.max.x - cell.min.x) as f32,
-                                (cell.max.y - cell.min.y) as f32,
+                        let clip = item.clip.map(|c| {
+                            (
+                                c.min.x.floor() as i32,
+                                c.min.y.floor() as i32,
+                                c.max.x.ceil() as i32,
+                                c.max.y.ceil() as i32,
+                            )
+                        });
+                        text_draws.push(TextDraw {
+                            run: run.clone(),
+                            left: showing.min.x as f32,
+                            top: showing.min.y as f32,
+                            em: em as f32,
+                            fill: [
                                 fill[0] as f32,
                                 fill[1] as f32,
                                 fill[2] as f32,
                                 fill[3] as f32,
-                            ];
-                            for n in quad {
-                                instances.extend_from_slice(&n.to_le_bytes());
-                            }
-                            count += 1;
-                        }
+                            ],
+                            clip,
+                        });
                     }
                     _ => {
                         let quad: [f32; 8] = [
@@ -473,6 +486,10 @@ impl Port for Surface {
                     }
                 }
                 emitted += 1;
+            }
+            if is_text {
+                // Text is drawn by glyphon after the quad pass — no instance run.
+                continue;
             }
             if is_link {
                 if link_count > first {
@@ -496,101 +513,144 @@ impl Port for Surface {
                 });
             }
         }
-        self.narrowed = (count + link_count) as usize * 4;
+        self.narrowed = (count + link_count) as usize * 4 + text_draws.len() * 4;
 
-        let Some(gpu) = self.gpu.as_mut() else {
+        if self.gpu.is_none() || self.target.is_none() {
             return;
-        };
-        let Some(target) = self.target.as_ref() else {
-            return;
-        };
+        }
         let (width_px, height_px) = self.target_px;
         if width_px == 0 || height_px == 0 {
             return;
         }
 
-        let needed = u64::from(count).max(1) * INSTANCE_STRIDE;
-        if needed > gpu.capacity {
-            gpu.capacity = needed.next_power_of_two();
-            gpu.instances = gpu.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("instances"),
-                size: gpu.capacity,
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-        }
-        if !instances.is_empty() {
-            gpu.queue.write_buffer(&gpu.instances, 0, &instances);
-        }
-        let link_needed = u64::from(link_count).max(1) * LINK_STRIDE;
-        if link_needed > gpu.link_capacity {
-            gpu.link_capacity = link_needed.next_power_of_two();
-            gpu.link_instances = gpu.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("link instances"),
-                size: gpu.link_capacity,
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-        }
-        if !link_instances.is_empty() {
-            gpu.queue
-                .write_buffer(&gpu.link_instances, 0, &link_instances);
-        }
-        let uniform: [f32; 4] = [
-            width_px as f32,
-            height_px as f32,
-            self.geometry.scale_factor as f32,
-            0.0,
-        ];
-        let mut uniform_bytes = Vec::with_capacity(16);
-        for n in uniform {
-            uniform_bytes.extend_from_slice(&n.to_le_bytes());
-        }
-        gpu.queue.write_buffer(&gpu.uniform, 0, &uniform_bytes);
-
-        let mut encoder = gpu
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("frame") });
+        // Take text out so gpu and text are not borrowed from self at once.
+        let mut text = self.text.take();
+        let scale = self.geometry.scale_factor;
+        let clear = self.clear;
         {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("frame"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: target,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: self.clear[0],
-                            g: self.clear[1],
-                            b: self.clear[2],
-                            a: self.clear[3],
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            // Four corners as a strip, one instance per placed thing. Draw order is
-            // the placement's order, which is address order within a level and level
-            // order across levels (`PRESENTER.md` §9). No z-index — and the batches
-            // are a partition of that order, so drawing them in turn preserves it.
-            pass.set_bind_group(0, &gpu.bind, &[]);
-            for run in &runs {
-                if run.link {
-                    pass.set_pipeline(&gpu.links);
-                    pass.set_vertex_buffer(0, gpu.link_instances.slice(..));
-                } else {
-                    pass.set_pipeline(&gpu.pipeline);
-                    pass.set_vertex_buffer(0, gpu.instances.slice(..));
-                }
-                pass.draw(0..4, run.first..run.first + run.count);
+            let gpu = self.gpu.as_mut().expect("gpu checked above");
+            let target = self.target.as_ref().expect("target checked above");
+
+            let needed = u64::from(count).max(1) * INSTANCE_STRIDE;
+            if needed > gpu.capacity {
+                gpu.capacity = needed.next_power_of_two();
+                gpu.instances = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("instances"),
+                    size: gpu.capacity,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
             }
+            if !instances.is_empty() {
+                gpu.queue.write_buffer(&gpu.instances, 0, &instances);
+            }
+            let link_needed = u64::from(link_count).max(1) * LINK_STRIDE;
+            if link_needed > gpu.link_capacity {
+                gpu.link_capacity = link_needed.next_power_of_two();
+                gpu.link_instances = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("link instances"),
+                    size: gpu.link_capacity,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+            }
+            if !link_instances.is_empty() {
+                gpu.queue
+                    .write_buffer(&gpu.link_instances, 0, &link_instances);
+            }
+            let uniform: [f32; 4] = [
+                width_px as f32,
+                height_px as f32,
+                scale as f32,
+                0.0,
+            ];
+            let mut uniform_bytes = Vec::with_capacity(16);
+            for n in uniform {
+                uniform_bytes.extend_from_slice(&n.to_le_bytes());
+            }
+            gpu.queue.write_buffer(&gpu.uniform, 0, &uniform_bytes);
+
+            if let Some(text) = text.as_mut() {
+                let logical_w = (width_px as f64 / scale.max(1e-12)).ceil().max(1.0) as u32;
+                let logical_h = (height_px as f64 / scale.max(1e-12)).ceil().max(1.0) as u32;
+                text.resize(logical_w, logical_h, scale as f32);
+                text.clear_pending();
+                for draw in &text_draws {
+                    text.queue_text(
+                        &draw.run,
+                        draw.left,
+                        draw.top,
+                        draw.em,
+                        400,
+                        draw.fill,
+                        draw.clip,
+                    );
+                }
+                text.prepare(&gpu.device, &gpu.queue);
+            }
+
+            let mut encoder = gpu
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("frame") });
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("frame"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: target,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: clear[0],
+                                g: clear[1],
+                                b: clear[2],
+                                a: clear[3],
+                            }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                // Four corners as a strip, one instance per placed thing. Draw order is
+                // the placement's order, which is address order within a level and level
+                // order across levels (`PRESENTER.md` §9). No z-index — and the batches
+                // are a partition of that order, so drawing them in turn preserves it.
+                pass.set_bind_group(0, &gpu.bind, &[]);
+                for run in &runs {
+                    if run.link {
+                        pass.set_pipeline(&gpu.links);
+                        pass.set_vertex_buffer(0, gpu.link_instances.slice(..));
+                    } else {
+                        pass.set_pipeline(&gpu.pipeline);
+                        pass.set_vertex_buffer(0, gpu.instances.slice(..));
+                    }
+                    pass.draw(0..4, run.first..run.first + run.count);
+                }
+                // Text after rects — Innovator's proven order.
+                if let Some(text) = text.as_ref() {
+                    let _ = text.render_into(&mut pass);
+                }
+            }
+            gpu.queue.submit(Some(encoder.finish()));
         }
-        gpu.queue.submit(Some(encoder.finish()));
+        if let Some(text) = text.as_mut() {
+            text.trim();
+        }
+        self.text = text;
     }
+}
+
+/// One text run queued for glyphon after the instance walk.
+struct TextDraw {
+    run: Box<str>,
+    left: f32,
+    top: f32,
+    em: f32,
+    fill: [f32; 4],
+    clip: Option<(i32, i32, i32, i32)>,
 }
 
 fn build(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, format: wgpu::TextureFormat) -> Gpu {

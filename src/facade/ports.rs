@@ -18,6 +18,7 @@ mod stale_feed;
 mod store_read;
 mod store_write;
 mod surface;
+mod text;
 mod values;
 
 pub use backends::Backends;
@@ -34,4 +35,5 @@ pub use stale_feed::StaleFeed;
 pub use store_read::StoreRead;
 pub use store_write::StoreWrite;
 pub use surface::Surface;
+pub use text::TextRenderer;
 pub use values::Values;

@@ -49,7 +49,7 @@ fn a_point_answers_without_a_port() {
     let mut overlap = SceneSet::new(Revision::new(1));
     overlap.insert(thing(vec![0x01], false, true, None));
     overlap.insert(thing(vec![0x02], false, true, None));
-    let placed = place(&overlap, &v);
+    let placed = place(&overlap, &v, None);
     let at = centred(&placed, &Addr::new(vec![0x01]));
     let hit = probe(&placed, at).expect("overlap should hit");
     assert_eq!(hit.at, Addr::new(vec![0x02]), "the later sibling must win");
@@ -82,7 +82,7 @@ fn a_point_answers_without_a_port() {
         accepts: true,
         text: "".into(),
     });
-    let placed = place(&clipped, &v);
+    let placed = place(&clipped, &v, None);
     let parent = centred(&placed, &Addr::new(vec![0x10]));
     let hit = probe(&placed, parent).expect("parent should hit");
     assert!(
@@ -93,7 +93,7 @@ fn a_point_answers_without_a_port() {
     let mut collapsed = SceneSet::new(Revision::new(1));
     collapsed.insert(thing(vec![0x20], true, true, Some(-64)));
     collapsed.insert(thing(vec![0x20, 0x01], false, true, None));
-    let placed = place(&collapsed, &v);
+    let placed = place(&collapsed, &v, None);
     assert!(
         placed
             .placed
@@ -135,7 +135,7 @@ fn a_point_answers_without_a_port() {
         accepts: true,
         text: "".into(),
     });
-    let placed = place(&gutter, &v);
+    let placed = place(&gutter, &v, None);
     let parent_rect = placed
         .placed
         .iter()

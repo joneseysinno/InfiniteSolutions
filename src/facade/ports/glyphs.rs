@@ -1,48 +1,30 @@
-//! [`Glyphs`] — presenter. Text extent and raster.
+//! [`Glyphs`] — presenter. Text extent via a real font (E14, R-F).
 //!
-//! E13.0: a bootstrap bitmap font until a style row names a real one (O26). The
-//! presenter asks only *how much room*; this file turns a run into ink cells the
-//! `Surface` narrows to `f32` and draws.
+//! Rasterisation lives on [`Surface`](super::Surface) through
+//! [`TextRenderer`](super::text::TextRenderer). This port answers only *how much
+//! room* a run needs, with the same embedded Inter face the surface draws.
 
+use std::sync::Mutex;
+
+use cosmic_text::{Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Weight};
 use infinite_presenter::binding::ports::Glyphs as Port;
 use infinite_presenter::core::{Point, Rect};
 
-/// The bootstrap font and raster layout.
-pub struct Glyphs;
+use super::text::{FONT_BYTES, FONT_FAMILY};
 
-/// Columns and rows in the bootstrap font.
-const COLS: f64 = 5.0;
-const ROWS: f64 = 7.0;
+/// The bootstrap measurement face — same bytes the surface rasterises.
+pub struct Glyphs {
+    font_system: Mutex<FontSystem>,
+}
 
 impl Glyphs {
     pub(crate) fn new() -> Self {
-        Self
-    }
-
-    /// Every lit cell in a run, as axis-aligned rectangles in the same coordinates
-    /// the placement uses (logical surface units).
-    pub fn ink_cells(run: &str, origin: Point, em: f64) -> impl Iterator<Item = Rect> + '_ {
-        let cell_h = em / ROWS;
-        let cell_w = cell_h * (COLS / ROWS);
-        let gap = cell_w * 0.25;
-        let advance = COLS * cell_w + gap;
-        run.chars().enumerate().flat_map(move |(i, ch)| {
-            let base_x = origin.x + i as f64 * advance;
-            glyph_bits(ch).into_iter().enumerate().flat_map(move |(row, bits)| {
-                (0..5).filter_map(move |col| {
-                    if bits & (1 << (4 - col)) == 0 {
-                        return None;
-                    }
-                    Some(Rect::new(
-                        Point::new(base_x + col as f64 * cell_w, origin.y + row as f64 * cell_h),
-                        Point::new(
-                            base_x + (col as f64 + 1.0) * cell_w,
-                            origin.y + (row as f64 + 1.0) * cell_h,
-                        ),
-                    ))
-                })
-            })
-        })
+        let mut font_system = FontSystem::new();
+        font_system.db_mut().load_font_data(FONT_BYTES.to_vec());
+        font_system.db_mut().set_sans_serif_family(FONT_FAMILY);
+        Self {
+            font_system: Mutex::new(font_system),
+        }
     }
 }
 
@@ -51,24 +33,24 @@ impl Port for Glyphs {
         if run.is_empty() {
             return Rect::new(Point::ORIGIN, Point::ORIGIN);
         }
-        let cell_h = em / ROWS;
-        let cell_w = cell_h * (COLS / ROWS);
-        let gap = cell_w * 0.25;
-        let advance = COLS * cell_w + gap;
-        let width = advance * run.chars().count() as f64 - gap;
-        Rect::new(Point::ORIGIN, Point::new(width.max(cell_w), em))
-    }
-}
-
-fn glyph_bits(ch: char) -> [u8; 7] {
-    match ch {
-        'A' => [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x00],
-        'B' => [0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E],
-        'C' => [0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E],
-        'H' => [0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
-        'I' => [0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E],
-        'i' => [0x04, 0x00, 0x04, 0x04, 0x04, 0x04, 0x0E],
-        ' ' => [0x00; 7],
-        _ => [0x1F, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1F],
+        let size = em as f32;
+        let metrics = Metrics::new(size, size * 1.35);
+        let mut font_system = self.font_system.lock().expect("glyphs font lock");
+        let mut buffer = Buffer::new(&mut font_system, metrics);
+        let attrs = Attrs::new()
+            .family(Family::SansSerif)
+            .weight(Weight(400));
+        buffer.set_size(Some(4000.0), Some(metrics.line_height));
+        buffer.set_text(run, &attrs, Shaping::Advanced, None);
+        buffer.shape_until_scroll(&mut font_system, false);
+        let mut width = 0.0f32;
+        for layout in buffer.layout_runs() {
+            width = width.max(layout.line_w);
+        }
+        let height = metrics.line_height;
+        Rect::new(
+            Point::ORIGIN,
+            Point::new(f64::from(width.max(size * 0.1)), f64::from(height)),
+        )
     }
 }
