@@ -115,6 +115,18 @@ path = "tests/toolbar.rs"
 name = "counter"
 path = "tests/counter.rs"
 
+[[test]]
+name = "mint_derived"
+path = "tests/mint_derived.rs"
+
+[[test]]
+name = "mint_identical"
+path = "tests/mint_identical.rs"
+
+[[test]]
+name = "spec_flatten"
+path = "tests/spec_flatten.rs"
+
 [workspace]
 resolver = "3"
 members = [

@@ -102,10 +102,10 @@ impl ApplicationHandler for App {
                 let flags = if state == ElementState::Pressed { bit } else { 0 };
                 if button == MouseButton::Left {
                     if state == ElementState::Pressed && self.modifiers.shift_key() {
-                        self.store.amend(addresses::WIRE_MODE_KEY, &[1]);
+                        self.store.amend(addresses::wire_mode_key(), &[1]);
                     }
                     if state == ElementState::Released {
-                        self.store.discard_at(addresses::WIRE_MODE_KEY);
+                        self.store.discard_at(addresses::wire_mode_key());
                     }
                 }
                 if button == MouseButton::Middle {

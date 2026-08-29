@@ -67,7 +67,5 @@ impl Port for Definitions {
 }
 
 fn successor(bytes: &[u8]) -> Vec<u8> {
-    let mut c = Inner::coord(bytes);
-    c = c.saturating_add(1);
-    Inner::bytes_of(c)
+    Inner::successor_key(bytes)
 }

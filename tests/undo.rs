@@ -40,13 +40,13 @@ fn drag_and_commit(store: &facade::Store, delta: (f64, f64)) {
     let target = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::NODE_A_KEY)
+        .find(|p| p.at.as_bytes() == addresses::node_a_key())
         .or_else(|| placement.placed.iter().find(|p| p.accepts))
         .expect("a genesis space");
     let mid_x = (target.rect.min.x + target.rect.max.x) * 0.5;
     let mid_y = (target.rect.min.y + target.rect.max.y) * 0.5;
     store.amend(
-        addresses::DRAG_FROM_KEY,
+        addresses::drag_from_key(),
         &point(mid_x - delta.0, mid_y - delta.1),
     );
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(mid_x, mid_y));
@@ -56,9 +56,9 @@ fn drag_and_commit(store: &facade::Store, delta: (f64, f64)) {
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
     editor::run(store);
     for key in [
-        addresses::CANVAS_KEY,
-        addresses::NODE_A_KEY,
-        addresses::NODE_B_KEY,
+        addresses::canvas_key(),
+        addresses::node_a_key(),
+        addresses::node_b_key(),
     ] {
         store.commit_at(key);
     }
@@ -81,20 +81,20 @@ fn drain(store: &facade::Store) {
 #[test]
 fn undoing_a_drag_restores_the_previous_origin() {
     let (_dir, store) = seeded();
-    let before = stored_origin(&store, addresses::NODE_A_KEY);
+    let before = stored_origin(&store, addresses::node_a_key());
 
     drag_and_commit(&store, (10.0, 0.0));
-    let moved = stored_origin(&store, addresses::NODE_A_KEY);
+    let moved = stored_origin(&store, addresses::node_a_key());
     assert_ne!(before, moved, "the drag must move the node");
 
     let touched = store.undo();
     assert_eq!(
         touched.as_deref(),
-        Some(addresses::NODE_A_KEY),
+        Some(addresses::node_a_key()),
         "undo must report the address it touched"
     );
 
-    let restored = stored_origin(&store, addresses::NODE_A_KEY);
+    let restored = stored_origin(&store, addresses::node_a_key());
     assert_eq!(restored, before, "undo must restore the pre-drag origin");
 }
 
@@ -132,7 +132,7 @@ fn committed_since_reports_commits_in_order_and_ignores_pans() {
         1,
         "one committed drag is one entry, got {after_drag:?}"
     );
-    assert_eq!(after_drag[0].0, addresses::NODE_A_KEY);
+    assert_eq!(after_drag[0].0, addresses::node_a_key());
 
     store.pan_by(40.0, 20.0);
     assert_eq!(
@@ -148,15 +148,15 @@ fn committed_since_reports_commits_in_order_and_ignores_pans() {
 fn redo_replays_and_a_fresh_commit_drops_the_tail() {
     let (_dir, store) = seeded();
     drag_and_commit(&store, (10.0, 0.0));
-    let moved = stored_origin(&store, addresses::NODE_A_KEY);
+    let moved = stored_origin(&store, addresses::node_a_key());
 
     store.undo();
-    assert_ne!(stored_origin(&store, addresses::NODE_A_KEY), moved);
+    assert_ne!(stored_origin(&store, addresses::node_a_key()), moved);
 
     let touched = store.redo();
-    assert_eq!(touched.as_deref(), Some(addresses::NODE_A_KEY));
+    assert_eq!(touched.as_deref(), Some(addresses::node_a_key()));
     assert_eq!(
-        stored_origin(&store, addresses::NODE_A_KEY),
+        stored_origin(&store, addresses::node_a_key()),
         moved,
         "redo must restore exactly the value undo stepped back over"
     );
@@ -177,23 +177,23 @@ fn redo_replays_and_a_fresh_commit_drops_the_tail() {
 #[test]
 fn discarding_a_drag_never_enters_the_undo_stream() {
     let (_dir, store) = seeded();
-    let before = stored_origin(&store, addresses::NODE_A_KEY);
+    let before = stored_origin(&store, addresses::node_a_key());
 
     let placement = store.place_now();
     let target = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::NODE_A_KEY)
+        .find(|p| p.at.as_bytes() == addresses::node_a_key())
         .expect("node A");
     let mid_x = (target.rect.min.x + target.rect.max.x) * 0.5;
     let mid_y = (target.rect.min.y + target.rect.max.y) * 0.5;
-    store.amend(addresses::DRAG_FROM_KEY, &point(mid_x - 10.0, mid_y));
+    store.amend(addresses::drag_from_key(), &point(mid_x - 10.0, mid_y));
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(mid_x, mid_y));
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
     editor::run(&store);
 
     assert!(
-        store.discard_at(addresses::NODE_A_KEY),
+        store.discard_at(addresses::node_a_key()),
         "a pending, uncommitted amend at node A must be discardable"
     );
     assert!(
@@ -201,7 +201,7 @@ fn discarding_a_drag_never_enters_the_undo_stream() {
         "a discard must never add an undo entry"
     );
     assert_eq!(
-        stored_origin(&store, addresses::NODE_A_KEY),
+        stored_origin(&store, addresses::node_a_key()),
         before,
         "the stored origin never changed — the amend was pending, never committed"
     );

@@ -11,12 +11,12 @@ use crate::facade::Store;
 pub fn bind(store: &Store) {
     store.bind_plan(
         addresses::BEHAVIOUR_ROOT_KEY,
-        addresses::BEHAVIOUR_END_KEY,
+        addresses::behaviour_end_key(),
         addresses::BEHAVIOUR_ROOT_KEY,
     );
     store.bind_graph(addresses::GRAPH_ROOT_KEY);
-    store.bind_styles(addresses::STYLE_ROOT_KEY, addresses::STYLE_END_KEY);
-    store.bind_background(addresses::CANVAS_KEY);
+    store.bind_styles(addresses::STYLE_ROOT_KEY, addresses::style_end_key());
+    store.bind_background(addresses::canvas_key());
 }
 
 fn point_xy(payload: &[u8]) -> Option<(f64, f64)> {
@@ -31,7 +31,7 @@ fn point_xy(payload: &[u8]) -> Option<(f64, f64)> {
 
 fn wire_mismatch(store: &Store) -> bool {
     store
-        .pending_at(addresses::WIRE_MISMATCH_KEY)
+        .pending_at(addresses::wire_mismatch_key())
         .is_some_and(|b| b.first().copied().unwrap_or(0) != 0)
 }
 
@@ -41,33 +41,33 @@ pub fn run(store: &Store) {
         .pending_at(addresses::POINTER_BUTTON.as_bytes())
         .unwrap_or_else(|| vec![0]);
     let pos = store.pending_at(addresses::POINTER_POSITION.as_bytes());
-    let wire_drag = store.pending_at(addresses::WIRE_FROM_KEY).is_some();
+    let wire_drag = store.pending_at(addresses::wire_from_key()).is_some();
 
     if button.first().copied().unwrap_or(0) != 0 {
         if let Some(p) = &pos {
             if let Some((x, y)) = point_xy(p) {
-                if wire::mode_active(store) && store.pending_at(addresses::WIRE_FROM_KEY).is_none() {
+                if wire::mode_active(store) && store.pending_at(addresses::wire_from_key()).is_none() {
                     if let Some(hit) = store.probe_at(x, y) {
                         if wire::is_endpoint(store, &hit) {
                             let _ = wire::begin(store, &hit);
                         }
                     }
-                } else if store.pending_at(addresses::PALETTE_FROM_KEY).is_none() {
+                } else if store.pending_at(addresses::palette_from_key()).is_none() {
                     if let Some(hit) = palette::hit_at(store, x, y) {
-                        store.amend(addresses::PALETTE_FROM_KEY, &hit);
+                        store.amend(addresses::palette_from_key(), &hit);
                     }
                 }
             }
             if !wire_drag
                 && !wire::mode_active(store)
-                && store.pending_at(addresses::WIRE_FROM_KEY).is_none()
-                && store.pending_at(addresses::PALETTE_FROM_KEY).is_none()
-                && store.pending_at(addresses::DRAG_FROM_KEY).is_none()
+                && store.pending_at(addresses::wire_from_key()).is_none()
+                && store.pending_at(addresses::palette_from_key()).is_none()
+                && store.pending_at(addresses::drag_from_key()).is_none()
                 && pos.as_ref().is_none_or(|p| {
                     point_xy(p).is_none_or(|(x, y)| toolbar::hit_at(store, x, y).is_none())
                 })
             {
-                store.amend(addresses::DRAG_FROM_KEY, p);
+                store.amend(addresses::drag_from_key(), p);
             }
         }
         if wire_drag {
@@ -80,8 +80,8 @@ pub fn run(store: &Store) {
             }
         }
     } else {
-        store.discard_at(addresses::DRAG_FROM_KEY);
-        if store.pending_at(addresses::PALETTE_FROM_KEY).is_some() {
+        store.discard_at(addresses::drag_from_key());
+        if store.pending_at(addresses::palette_from_key()).is_some() {
             if let Some(p) = &pos {
                 if let Some((x, y)) = point_xy(p) {
                     let hit = store.probe_at(x, y).unwrap_or_default();
@@ -91,7 +91,7 @@ pub fn run(store: &Store) {
                 }
             }
         }
-        if store.pending_at(addresses::WIRE_FROM_KEY).is_some() {
+        if store.pending_at(addresses::wire_from_key()).is_some() {
             if let Some(p) = &pos {
                 if let Some((x, y)) = point_xy(p) {
                     if let Some(hit) = store.probe_at(x, y) {
@@ -100,7 +100,7 @@ pub fn run(store: &Store) {
                 }
             }
         }
-        if store.pending_at(addresses::RELEASE_PULSE_KEY).is_some() {
+        if store.pending_at(addresses::release_pulse_key()).is_some() {
             if let Some(p) = &pos {
                 if let Some((x, y)) = point_xy(p) {
                     toolbar::activate(store, x, y);
@@ -108,92 +108,92 @@ pub fn run(store: &Store) {
             }
         }
     }
-    let palette_drag = store.pending_at(addresses::PALETTE_FROM_KEY).is_some();
+    let palette_drag = store.pending_at(addresses::palette_from_key()).is_some();
     if let Some(p) = &pos {
-        store.write_slot(addresses::BEHAVIOUR_PROBE_KEY, "at", p, "point");
-        store.write_slot(addresses::BEHAVIOUR_OFFSET_KEY, "to", p, "point");
+        store.write_slot(addresses::behaviour_probe_key(), "at", p, "point");
+        store.write_slot(addresses::behaviour_offset_key(), "to", p, "point");
     }
-    if let Some(from) = store.pending_at(addresses::DRAG_FROM_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_OFFSET_KEY, "from", &from, "point");
+    if let Some(from) = store.pending_at(addresses::drag_from_key()) {
+        store.write_slot(addresses::behaviour_offset_key(), "from", &from, "point");
     }
     if !palette_drag
         && !wire_drag
         && !wire::mode_active(store)
-        && store.pending_at(addresses::WIRE_FROM_KEY).is_none()
-        && store.pending_at(addresses::PALETTE_FROM_KEY).is_none()
+        && store.pending_at(addresses::wire_from_key()).is_none()
+        && store.pending_at(addresses::palette_from_key()).is_none()
     {
-        store.write_slot(addresses::BEHAVIOUR_GATE_KEY, "on", &button, "flag");
+        store.write_slot(addresses::behaviour_gate_key(), "on", &button, "flag");
     }
-    if let Some(pulse) = store.pending_at(addresses::RELEASE_PULSE_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_SELECT_GATE_KEY, "on", &pulse, "flag");
+    if let Some(pulse) = store.pending_at(addresses::release_pulse_key()) {
+        store.write_slot(addresses::behaviour_select_gate_key(), "on", &pulse, "flag");
     }
     if let Some(sel) = store.selection() {
-        store.write_slot(addresses::BEHAVIOUR_EDIT_READ_KEY, "addr", &sel, "address");
-        store.write_slot(addresses::BEHAVIOUR_EDIT_AMEND_KEY, "addr", &sel, "address");
-        store.write_slot(addresses::BEHAVIOUR_EDIT_COMMIT_KEY, "addr", &sel, "address");
+        store.write_slot(addresses::behaviour_edit_read_key(), "addr", &sel, "address");
+        store.write_slot(addresses::behaviour_edit_amend_key(), "addr", &sel, "address");
+        store.write_slot(addresses::behaviour_edit_commit_key(), "addr", &sel, "address");
     }
-    if let Some(origin) = store.pending_at(addresses::EDIT_ORIGIN_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_SET_ORIGIN_KEY, "origin", &origin, "point");
+    if let Some(origin) = store.pending_at(addresses::edit_origin_key()) {
+        store.write_slot(addresses::behaviour_set_origin_key(), "origin", &origin, "point");
     }
-    if let Some(pulse) = store.pending_at(addresses::EDIT_COMMIT_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_EDIT_GATE_KEY, "on", &pulse, "flag");
+    if let Some(pulse) = store.pending_at(addresses::edit_commit_key()) {
+        store.write_slot(addresses::behaviour_edit_gate_key(), "on", &pulse, "flag");
     }
-    if let Some(from) = store.pending_at(addresses::PALETTE_FROM_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_PLACE_READ_KEY, "addr", &from, "address");
+    if let Some(from) = store.pending_at(addresses::palette_from_key()) {
+        store.write_slot(addresses::behaviour_place_read_key(), "addr", &from, "address");
     }
-    if let Some(origin) = store.pending_at(addresses::PLACE_ORIGIN_KEY) {
+    if let Some(origin) = store.pending_at(addresses::place_origin_key()) {
         store.write_slot(
-            addresses::BEHAVIOUR_PLACE_SET_ORIGIN_KEY,
+            addresses::behaviour_place_set_origin_key(),
             "origin",
             &origin,
             "point",
         );
     }
-    if let Some(pulse) = store.pending_at(addresses::PLACE_COMMIT_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_PLACE_GATE_KEY, "on", &pulse, "flag");
+    if let Some(pulse) = store.pending_at(addresses::place_commit_key()) {
+        store.write_slot(addresses::behaviour_place_gate_key(), "on", &pulse, "flag");
     }
-    if let Some(addr) = store.pending_at(addresses::PLACE_ADDR_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_PLACE_AMEND_KEY, "addr", &addr, "address");
-        store.write_slot(addresses::BEHAVIOUR_PLACE_COMMIT_KEY, "addr", &addr, "address");
+    if let Some(addr) = store.pending_at(addresses::place_addr_key()) {
+        store.write_slot(addresses::behaviour_place_amend_key(), "addr", &addr, "address");
+        store.write_slot(addresses::behaviour_place_commit_key(), "addr", &addr, "address");
     }
-    if let Some(from) = store.pending_at(addresses::WIRE_FROM_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_ENCODE_WIRE_KEY, "from", &from, "address");
+    if let Some(from) = store.pending_at(addresses::wire_from_key()) {
+        store.write_slot(addresses::behaviour_encode_wire_key(), "from", &from, "address");
     }
-    if let Some(to) = store.pending_at(addresses::WIRE_TO_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_ENCODE_WIRE_KEY, "to", &to, "address");
+    if let Some(to) = store.pending_at(addresses::wire_to_key()) {
+        store.write_slot(addresses::behaviour_encode_wire_key(), "to", &to, "address");
     }
-    if let Some(pulse) = store.pending_at(addresses::WIRE_COMMIT_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_WIRE_GATE_KEY, "on", &pulse, "flag");
+    if let Some(pulse) = store.pending_at(addresses::wire_commit_key()) {
+        store.write_slot(addresses::behaviour_wire_gate_key(), "on", &pulse, "flag");
     }
-    if let Some(addr) = store.pending_at(addresses::WIRE_ADDR_KEY) {
-        store.write_slot(addresses::BEHAVIOUR_WIRE_AMEND_KEY, "addr", &addr, "address");
-        store.write_slot(addresses::BEHAVIOUR_WIRE_COMMIT_KEY, "addr", &addr, "address");
+    if let Some(addr) = store.pending_at(addresses::wire_addr_key()) {
+        store.write_slot(addresses::behaviour_wire_amend_key(), "addr", &addr, "address");
+        store.write_slot(addresses::behaviour_wire_commit_key(), "addr", &addr, "address");
     }
     store.write_slot(
-        addresses::BEHAVIOUR_SELECT_AMEND_KEY,
+        addresses::behaviour_select_amend_key(),
         "addr",
-        addresses::SELECT_KEY,
+        addresses::select_key(),
         "address",
     );
     store.write_slot(
-        addresses::BEHAVIOUR_SELECT_COMMIT_KEY,
+        addresses::behaviour_select_commit_key(),
         "addr",
-        addresses::SELECT_KEY,
+        addresses::select_key(),
         "address",
     );
     store.run_linked();
-    let release = store.pending_at(addresses::RELEASE_PULSE_KEY).is_some();
+    let release = store.pending_at(addresses::release_pulse_key()).is_some();
     if release {
         app::try_run(store);
     }
-    store.discard_at(addresses::RELEASE_PULSE_KEY);
-    store.discard_at(addresses::EDIT_COMMIT_KEY);
-    store.discard_at(addresses::PLACE_COMMIT_KEY);
-    store.discard_at(addresses::WIRE_COMMIT_KEY);
+    store.discard_at(addresses::release_pulse_key());
+    store.discard_at(addresses::edit_commit_key());
+    store.discard_at(addresses::place_commit_key());
+    store.discard_at(addresses::wire_commit_key());
     if button.first().copied().unwrap_or(0) == 0 {
-        store.discard_at(addresses::WIRE_MISMATCH_KEY);
-        store.discard_at(addresses::PALETTE_FROM_KEY);
-        store.discard_at(addresses::WIRE_FROM_KEY);
-        store.discard_at(addresses::WIRE_TO_KEY);
+        store.discard_at(addresses::wire_mismatch_key());
+        store.discard_at(addresses::palette_from_key());
+        store.discard_at(addresses::wire_from_key());
+        store.discard_at(addresses::wire_to_key());
     }
 }

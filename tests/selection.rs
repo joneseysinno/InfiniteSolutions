@@ -1,6 +1,6 @@
 //! E13.1 — selection is authored, not a flag on `Placed`.
 //!
-//! A click writes [`addresses::SELECT_KEY`]; reopening the store shows the same
+//! A click writes [`addresses::select_key()`]; reopening the store shows the same
 //! selection. `Placed` still carries no selection field (L5).
 
 use infinite_solutions::editor;
@@ -37,7 +37,7 @@ fn click(store: &facade::Store, key: &[u8]) {
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
     editor::run(store);
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
-    store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+    store.amend(addresses::release_pulse_key(), &[1]);
     editor::run(store);
     while store.committed_len() > 0 {
         let _ = store.tick();
@@ -48,27 +48,27 @@ fn click(store: &facade::Store, key: &[u8]) {
 #[test]
 fn clicking_a_node_writes_the_selection_record() {
     let (_dir, store) = seeded();
-    click(&store, addresses::NODE_A_KEY);
+    click(&store, addresses::node_a_key());
     let selected = store.selection().expect("selection is authored");
-    assert_eq!(selected, addresses::NODE_A_KEY);
-    let payload = store.stored_at(addresses::SELECT_KEY).expect("stored");
+    assert_eq!(selected, addresses::node_a_key());
+    let payload = store.stored_at(addresses::select_key()).expect("stored");
     assert_eq!(
         decode_selection(&payload),
-        Some(Some(addresses::NODE_A_KEY.to_vec()))
+        Some(Some(addresses::node_a_key().to_vec()))
     );
 }
 
 #[test]
 fn selection_survives_restart() {
     let (dir, store) = seeded();
-    click(&store, addresses::NODE_B_KEY);
+    click(&store, addresses::node_b_key());
     drop(store);
 
     let store = facade::open(dir.path()).expect("reopen");
     editor::bind(&store);
     assert_eq!(
         store.selection().as_deref(),
-        Some(addresses::NODE_B_KEY),
+        Some(addresses::node_b_key()),
         "a restart replays the same selection"
     );
 }
@@ -76,15 +76,15 @@ fn selection_survives_restart() {
 #[test]
 fn selection_stops_when_the_behaviour_composition_is_removed() {
     let (_dir, store) = seeded();
-    click(&store, addresses::NODE_A_KEY);
-    assert_eq!(store.selection().as_deref(), Some(addresses::NODE_A_KEY));
+    click(&store, addresses::node_a_key());
+    assert_eq!(store.selection().as_deref(), Some(addresses::node_a_key()));
 
     store.delete_key(addresses::BEHAVIOUR_ROOT_KEY);
     let _ = store.tick();
-    click(&store, addresses::NODE_B_KEY);
+    click(&store, addresses::node_b_key());
     assert_eq!(
         store.selection().as_deref(),
-        Some(addresses::NODE_A_KEY),
+        Some(addresses::node_a_key()),
         "without the composition, a click must not change selection"
     );
 }

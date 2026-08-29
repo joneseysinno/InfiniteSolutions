@@ -6,9 +6,9 @@
 use crate::editor::addresses;
 use crate::facade::{encode_space, SpaceRecord, Store};
 
-/// Whether `key` is under the toolbar region.
+/// Whether `key` is a child under the toolbar space (O32 prefix).
 pub fn is_toolbar_item(key: &[u8]) -> bool {
-    key.len() >= 2 && key[0] == addresses::TOOLBAR_KEY[0] && key[1] != 0
+    key.len() > addresses::toolbar_key().len() && key.starts_with(addresses::toolbar_key())
 }
 
 /// Toolbar hit at a surface point. Uses placement geometry like the palette (D45).
@@ -32,8 +32,8 @@ pub fn hit_at(store: &Store, x: f64, y: f64) -> Option<Vec<u8>> {
 /// Session run flag. Defaults to running when unset.
 pub fn graph_running(store: &Store) -> bool {
     store
-        .pending_at(addresses::RUN_KEY)
-        .or_else(|| store.stored_at(addresses::RUN_KEY))
+        .pending_at(addresses::run_key())
+        .or_else(|| store.stored_at(addresses::run_key()))
         .map(|b| b.first().copied().unwrap_or(1) != 0)
         .unwrap_or(true)
 }
@@ -43,12 +43,12 @@ pub fn activate(store: &Store, x: f64, y: f64) {
     let Some(hit) = hit_at(store, x, y) else {
         return;
     };
-    if hit == addresses::TOOLBAR_HISTORY_KEY {
+    if hit == addresses::toolbar_history_key() {
         let placement = store.place_now();
         let item = placement
             .placed
             .iter()
-            .find(|p| p.at.as_bytes() == addresses::TOOLBAR_HISTORY_KEY)
+            .find(|p| p.at.as_bytes() == addresses::toolbar_history_key())
             .expect("history affordance is placed");
         let mid_x = (item.rect.min.x + item.rect.max.x) * 0.5;
         if x < mid_x {
@@ -56,9 +56,9 @@ pub fn activate(store: &Store, x: f64, y: f64) {
         } else {
             let _ = store.redo();
         }
-    } else if hit == addresses::TOOLBAR_RUN_KEY {
+    } else if hit == addresses::toolbar_run_key() {
         let running = graph_running(store);
-        store.amend(addresses::RUN_KEY, &[u8::from(!running)]);
+        store.amend(addresses::run_key(), &[u8::from(!running)]);
         refresh(store);
     }
 }
@@ -68,11 +68,11 @@ pub fn refresh(store: &Store) {
     let zoom = store.camera().zoom;
     let run_label = if graph_running(store) { "run" } else { "pause" };
     store.put(
-        addresses::TOOLBAR_ZOOM_KEY,
+        addresses::toolbar_zoom_key(),
         &encode_space(&text_field(0.02, &format!("zoom {zoom:.0}"))),
     );
     store.put(
-        addresses::TOOLBAR_RUN_KEY,
+        addresses::toolbar_run_key(),
         &encode_space(&run_field(run_label)),
     );
 }

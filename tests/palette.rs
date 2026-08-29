@@ -3,7 +3,7 @@
 use infinite_solutions::editor;
 use infinite_solutions::editor::addresses;
 use infinite_solutions::editor::mint;
-use infinite_solutions::facade::{self, decode_space, significant_bits};
+use infinite_solutions::facade::{self, decode_space};
 
 fn point(x: f64, y: f64) -> Vec<u8> {
     let mut p = Vec::with_capacity(16);
@@ -37,11 +37,10 @@ fn drag_palette_to(store: &facade::Store, drop_x: f64, drop_y: f64) -> Vec<u8> {
     let item = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::PALETTE_PLAIN_KEY)
+        .find(|p| p.at.as_bytes() == addresses::palette_plain_key())
         .expect("palette template is placed");
     let start_x = (item.rect.min.x + item.rect.max.x) * 0.5;
     let start_y = (item.rect.min.y + item.rect.max.y) * 0.5;
-    let minted = mint::next_child(store, addresses::CANVAS_KEY).expect("mint before drop");
 
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(start_x, start_y));
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
@@ -51,9 +50,13 @@ fn drag_palette_to(store: &facade::Store, drop_x: f64, drop_y: f64) -> Vec<u8> {
     editor::run(store);
 
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
-    store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+    store.amend(addresses::release_pulse_key(), &[1]);
     editor::run(store);
 
+    let minted = store
+        .pending_at(addresses::place_addr_key())
+        .or_else(|| store.stored_at(addresses::place_addr_key()))
+        .expect("place addr latched");
     store.commit_at(&minted);
     drain(store);
     minted
@@ -66,7 +69,7 @@ fn dragging_a_palette_block_mints_a_child_under_the_canvas() {
     let canvas = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::CANVAS_KEY)
+        .find(|p| p.at.as_bytes() == addresses::canvas_key())
         .expect("canvas is placed");
     let drop_x = canvas.rect.min.x + (canvas.rect.max.x - canvas.rect.min.x) * 0.6;
     let drop_y = canvas.rect.min.y + (canvas.rect.max.y - canvas.rect.min.y) * 0.6;
@@ -75,17 +78,25 @@ fn dragging_a_palette_block_mints_a_child_under_the_canvas() {
 
     assert_eq!(
         minted,
-        vec![0x11, 0x40, 0x00, 0x00],
-        "the fourth canvas sibling is minted after A, B, and the wire"
+        {
+            let (k, _) = mint::child(
+                addresses::canvas_key(),
+                mint::bits_of(addresses::canvas_key()),
+                0x0100,
+            )
+            .unwrap();
+            k
+        },
+        "first interactive mint under canvas uses session seed slot 0x0100"
     );
     assert_eq!(
-        significant_bits(&minted),
-        significant_bits(addresses::CANVAS_KEY) + 4,
+        facade::bits_of(&minted),
+        facade::bits_of(addresses::canvas_key()) + mint::SLOT_BITS,
         "the new block sits one level under the canvas"
     );
     assert_eq!(
         mint::parent_key(&minted),
-        addresses::CANVAS_KEY.to_vec(),
+        addresses::canvas_key().to_vec(),
         "the address names the canvas as parent"
     );
 
@@ -101,7 +112,7 @@ fn a_palette_block_survives_restart() {
     let canvas = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::CANVAS_KEY)
+        .find(|p| p.at.as_bytes() == addresses::canvas_key())
         .expect("canvas is placed");
     let drop_x = canvas.rect.min.x + (canvas.rect.max.x - canvas.rect.min.x) * 0.6;
     let drop_y = canvas.rect.min.y + (canvas.rect.max.y - canvas.rect.min.y) * 0.6;
@@ -120,10 +131,14 @@ fn a_palette_block_survives_restart() {
 }
 
 #[test]
-fn mint_skips_existing_siblings() {
+fn mint_uses_session_seed_not_store_scan() {
     let (_dir, store) = seeded();
-    assert_eq!(
-        mint::next_child(&store, addresses::CANVAS_KEY).expect("mint"),
-        vec![0x11, 0x40, 0x00, 0x00]
-    );
+    let minted = store.mint_under(addresses::canvas_key()).expect("mint");
+    let (expect, _) = mint::child(
+        addresses::canvas_key(),
+        mint::bits_of(addresses::canvas_key()),
+        0x0100,
+    )
+    .unwrap();
+    assert_eq!(minted, expect);
 }

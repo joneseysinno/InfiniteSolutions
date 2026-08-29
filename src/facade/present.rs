@@ -15,15 +15,15 @@ fn default_camera() -> Camera {
     Camera::new(Point::new(0.5, 0.5), 400.0)
 }
 
-/// Well-known key matches `editor::addresses::CAMERA_KEY` (D34); the literal bytes
+/// Well-known key matches `editor::addresses::camera_key()` (D34); the literal bytes
 /// appear here rather than a cross-layer import, matching the `SCREEN_ROOT_KEY`
 /// precedent in `record_findings` below (R2).
-const CAMERA_START: &[u8] = &[0x51, 0x00, 0x00, 0x00];
-const CAMERA_END: &[u8] = &[0x52, 0x00, 0x00, 0x00];
-const SELECT_START: &[u8] = &[0x52, 0x00, 0x00, 0x00];
-const SESSION_END: &[u8] = &[0x53, 0x00, 0x00, 0x00];
-const SCREEN_START: &[u8] = &[0x10, 0x00, 0x00, 0x00];
-const SCREEN_END: &[u8] = &[0x20, 0x00, 0x00, 0x00];
+const CAMERA_START: &[u8] = &[0x50, 0x00, 0x01];
+const CAMERA_END: &[u8] = &[0x50, 0x00, 0x02];
+const SELECT_START: &[u8] = &[0x50, 0x00, 0x02];
+const SESSION_END: &[u8] = &[0x60];
+const SCREEN_START: &[u8] = &[0x10];
+const SCREEN_END: &[u8] = &[0x20];
 
 /// What the property inspector shows about the current selection (E13.2).
 ///
@@ -124,7 +124,7 @@ impl Store {
             across: [item.across.min, item.across.ideal, item.across.weight],
             down: [item.down.min, item.down.ideal, item.down.weight],
             origin: [item.position.x, item.position.y],
-            depth: addr.prefix_bits() / 4,
+            depth: addr.prefix_bits() / 16,
         })
     }
 
@@ -302,7 +302,7 @@ impl Store {
         if placement.placed.is_empty() {
             // Site bytes match `editor::addresses::SCREEN_ROOT_KEY`. The path
             // string must not appear here (D34).
-            findings.push(from_empty_screen(&[0x10, 0x00, 0x00, 0x00]));
+            findings.push(from_empty_screen(&[0x10]));
         }
         if let Some(addr) = &placement.precision_floor {
             findings.push(from_precision_floor(addr.as_bytes()));

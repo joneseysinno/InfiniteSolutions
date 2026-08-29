@@ -15,7 +15,7 @@ const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
 /// One label on the canvas. Rewritten per character so fingerprints need no advance math.
-const LABEL_KEY: &[u8] = &[0x11, 0x50, 0x00, 0x00];
+const LABEL_KEY: &[u8] = &[0x10, 0x00, 0x01, 0x01, 0x00];
 
 const CANVAS: [u8; 3] = [31, 33, 41];
 

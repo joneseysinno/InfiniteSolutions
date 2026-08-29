@@ -37,7 +37,7 @@ fn click(store: &facade::Store, key: &[u8]) {
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
     editor::run(store);
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
-    store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+    store.amend(addresses::release_pulse_key(), &[1]);
     editor::run(store);
     while store.committed_len() > 0 {
         let _ = store.tick();
@@ -55,49 +55,49 @@ fn field_text(store: &facade::Store, key: &[u8]) -> String {
 #[test]
 fn the_inspector_shows_the_selected_nodes_properties() {
     let (_dir, store) = seeded();
-    click(&store, addresses::NODE_A_KEY);
+    click(&store, addresses::node_a_key());
 
     assert!(
-        field_text(&store, addresses::INSPECTOR_ADDR_KEY).contains("11100000"),
+        field_text(&store, addresses::inspector_addr_key()).contains("1000010001"),
         "address is shown as hex from the selection key"
     );
     assert!(
-        field_text(&store, addresses::INSPECTOR_STYLE_KEY).contains("plain"),
+        field_text(&store, addresses::inspector_style_key()).contains("plain"),
         "style key comes from the scene port"
     );
     assert!(
-        field_text(&store, addresses::INSPECTOR_ACROSS_KEY).contains("0.4"),
+        field_text(&store, addresses::inspector_across_key()).contains("0.4"),
         "across extent comes from the scene port"
     );
     assert!(
-        field_text(&store, addresses::INSPECTOR_DOWN_KEY).contains("0.4"),
+        field_text(&store, addresses::inspector_down_key()).contains("0.4"),
         "down extent comes from the scene port"
     );
     assert!(
-        field_text(&store, addresses::INSPECTOR_ORIGIN_KEY).contains("0 0"),
+        field_text(&store, addresses::inspector_origin_key()).contains("0 0"),
         "origin comes from the scene port"
     );
     assert!(
-        field_text(&store, addresses::INSPECTOR_DEPTH_KEY).contains("depth 3"),
-        "depth is prefix_bits / 4 from the address (D45)"
+        field_text(&store, addresses::inspector_depth_key()).contains("depth 2"),
+        "depth is prefix_bits / 16 from the address (E15)"
     );
 }
 
 #[test]
 fn selecting_node_b_shows_its_depth_and_origin() {
     let (_dir, store) = seeded();
-    click(&store, addresses::NODE_B_KEY);
+    click(&store, addresses::node_b_key());
 
     assert!(
-        field_text(&store, addresses::INSPECTOR_ADDR_KEY).contains("11200000"),
+        field_text(&store, addresses::inspector_addr_key()).contains("1000010002"),
         "node B's key is distinct from node A's"
     );
     assert!(
-        field_text(&store, addresses::INSPECTOR_ORIGIN_KEY).contains("0.5 0.5"),
+        field_text(&store, addresses::inspector_origin_key()).contains("0.5 0.5"),
         "node B's authored origin is shown"
     );
     assert!(
-        field_text(&store, addresses::INSPECTOR_DEPTH_KEY).contains("depth 3"),
+        field_text(&store, addresses::inspector_depth_key()).contains("depth 2"),
         "node B sits at the same level as node A on the canvas"
     );
 }
@@ -128,12 +128,12 @@ fn the_inspector_names_no_store_type() {
 #[test]
 fn selection_view_matches_the_inspector_fields() {
     let (_dir, store) = seeded();
-    click(&store, addresses::NODE_A_KEY);
+    click(&store, addresses::node_a_key());
     let view = store.selection_view().expect("selection view");
-    assert_eq!(view.address, "11100000");
+    assert_eq!(view.address, "1000010001");
     assert_eq!(view.style, "plain");
     assert_eq!(view.across, [0.4, 0.4, 0.0]);
     assert_eq!(view.down, [0.4, 0.4, 0.0]);
     assert_eq!(view.origin, [0.0, 0.0]);
-    assert_eq!(view.depth, 3);
+    assert_eq!(view.depth, 2);
 }

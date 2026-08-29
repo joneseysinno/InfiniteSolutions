@@ -34,7 +34,7 @@ fn click(store: &facade::Store, key: &[u8]) {
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
     editor::run(store);
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
-    store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+    store.amend(addresses::release_pulse_key(), &[1]);
     editor::run(store);
     while store.committed_len() > 0 {
         let _ = store.tick();
@@ -61,7 +61,7 @@ fn stored_origin(store: &facade::Store, key: &[u8]) -> [f64; 2] {
 #[test]
 fn editing_origin_follows_the_canvas_in_the_same_frame() {
     let (_dir, store) = seeded();
-    click(&store, addresses::NODE_A_KEY);
+    click(&store, addresses::node_a_key());
 
     editor::apply_origin(&store, 0.1, 0.1);
     editor::run(&store);
@@ -73,11 +73,11 @@ fn editing_origin_follows_the_canvas_in_the_same_frame() {
         "the scene port must overlay the pending amend before commit"
     );
 
-    store.commit_at(addresses::NODE_A_KEY);
+    store.commit_at(addresses::node_a_key());
     drain(&store);
 
     assert_eq!(
-        stored_origin(&store, addresses::NODE_A_KEY),
+        stored_origin(&store, addresses::node_a_key()),
         [0.1, 0.1],
         "the committed record carries the edited origin"
     );
@@ -86,22 +86,22 @@ fn editing_origin_follows_the_canvas_in_the_same_frame() {
 #[test]
 fn undoing_an_inspector_edit_restores_the_previous_origin() {
     let (_dir, store) = seeded();
-    click(&store, addresses::NODE_A_KEY);
-    let before = stored_origin(&store, addresses::NODE_A_KEY);
+    click(&store, addresses::node_a_key());
+    let before = stored_origin(&store, addresses::node_a_key());
 
     editor::apply_origin(&store, 0.1, 0.1);
     editor::run(&store);
-    store.commit_at(addresses::NODE_A_KEY);
+    store.commit_at(addresses::node_a_key());
     drain(&store);
 
     let touched = store.undo();
     assert_eq!(
         touched.as_deref(),
-        Some(addresses::NODE_A_KEY),
+        Some(addresses::node_a_key()),
         "undo must report the edited address"
     );
     assert_eq!(
-        stored_origin(&store, addresses::NODE_A_KEY),
+        stored_origin(&store, addresses::node_a_key()),
         before,
         "undo must restore the pre-edit origin"
     );
@@ -116,12 +116,12 @@ fn the_inspector_never_amends_the_selected_node_directly() {
             continue;
         }
         assert!(
-            !t.contains("NODE_A_KEY") && !t.contains("NODE_B_KEY"),
+            !t.contains("node_a_key") && !t.contains("node_b_key"),
             "the inspector must not name authored node keys: {t}"
         );
         if t.contains("store.amend(") {
             assert!(
-                t.contains("EDIT_ORIGIN_KEY") || t.contains("EDIT_COMMIT_KEY"),
+                t.contains("edit_origin_key") || t.contains("edit_commit_key"),
                 "inspector amend must target gesture addresses only: {t}"
             );
         }

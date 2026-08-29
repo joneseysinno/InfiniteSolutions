@@ -9,33 +9,33 @@ use crate::facade::{encode_space, SpaceRecord, Store};
 pub fn refresh(store: &Store) {
     let rows: [(&[u8], String); 6] = if let Some(view) = store.selection_view() {
         [
-            (addresses::INSPECTOR_ADDR_KEY, format!("addr {}", view.address)),
-            (addresses::INSPECTOR_STYLE_KEY, format!("style {}", view.style)),
+            (addresses::inspector_addr_key(), format!("addr {}", view.address)),
+            (addresses::inspector_style_key(), format!("style {}", view.style)),
             (
-                addresses::INSPECTOR_ACROSS_KEY,
+                addresses::inspector_across_key(),
                 format!(
                     "across {} {} {}",
                     view.across[0], view.across[1], view.across[2]
                 ),
             ),
             (
-                addresses::INSPECTOR_DOWN_KEY,
+                addresses::inspector_down_key(),
                 format!("down {} {} {}", view.down[0], view.down[1], view.down[2]),
             ),
             (
-                addresses::INSPECTOR_ORIGIN_KEY,
+                addresses::inspector_origin_key(),
                 format!("origin {} {}", view.origin[0], view.origin[1]),
             ),
-            (addresses::INSPECTOR_DEPTH_KEY, format!("depth {}", view.depth)),
+            (addresses::inspector_depth_key(), format!("depth {}", view.depth)),
         ]
     } else {
         [
-            (addresses::INSPECTOR_ADDR_KEY, "addr —".into()),
-            (addresses::INSPECTOR_STYLE_KEY, "style —".into()),
-            (addresses::INSPECTOR_ACROSS_KEY, "across —".into()),
-            (addresses::INSPECTOR_DOWN_KEY, "down —".into()),
-            (addresses::INSPECTOR_ORIGIN_KEY, "origin —".into()),
-            (addresses::INSPECTOR_DEPTH_KEY, "depth —".into()),
+            (addresses::inspector_addr_key(), "addr —".into()),
+            (addresses::inspector_style_key(), "style —".into()),
+            (addresses::inspector_across_key(), "across —".into()),
+            (addresses::inspector_down_key(), "down —".into()),
+            (addresses::inspector_origin_key(), "origin —".into()),
+            (addresses::inspector_depth_key(), "depth —".into()),
         ]
     };
     for ((key, text), origin_y) in rows
@@ -52,8 +52,8 @@ pub fn apply_origin(store: &Store, x: f64, y: f64) {
     let mut origin = Vec::with_capacity(16);
     origin.extend_from_slice(&x.to_le_bytes());
     origin.extend_from_slice(&y.to_le_bytes());
-    store.amend(addresses::EDIT_ORIGIN_KEY, &origin);
-    store.amend(addresses::EDIT_COMMIT_KEY, &[1]);
+    store.amend(addresses::edit_origin_key(), &origin);
+    store.amend(addresses::edit_commit_key(), &[1]);
 }
 
 fn text_field(origin_y: f64, run: &str) -> SpaceRecord {

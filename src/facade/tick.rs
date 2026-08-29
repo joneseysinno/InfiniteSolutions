@@ -159,16 +159,7 @@ impl Store {
 
     /// The stored payload at `origin` after a drain, for the saturation test.
     pub fn stored_at(&self, origin: &[u8]) -> Option<Vec<u8>> {
-        let end = {
-            let mut c = crate::facade::open::Inner::coord(origin);
-            c = c.saturating_add(1);
-            crate::facade::open::Inner::bytes_of(c)
-        };
-        let at = self.inner.db.stable_revision().legacy_sequence();
-        match self.inner.records_in_range(origin, &end, at) {
-            Ok(mut rows) => rows.pop().map(|(_, payload)| payload),
-            Err(e) => panic!("store read failed (not a missing value): {e}"),
-        }
+        self.inner.current_value(origin)
     }
 
     /// Fsyncs the session WAL so a crash loses at most the unflushed tail (D8).

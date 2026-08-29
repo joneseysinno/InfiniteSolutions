@@ -66,6 +66,8 @@ pub(crate) struct Inner {
     /// (`super::undo::SuppressUndo`). `dirty` is unaffected either way (see
     /// `commit_log` above).
     pub suppress_undo: Mutex<bool>,
+    /// Interactive address minting seed (E15). No store scan.
+    pub mint_seed: Mutex<crate::editor::mint::MintSeed>,
 }
 
 /// Opens the store at `dir`, registering the editor's 1-D space if needed.
@@ -77,8 +79,10 @@ pub fn open(dir: impl AsRef<Path>) -> Result<Store, EngineError> {
 pub fn open_with_options(dir: impl AsRef<Path>, options: OpenOptions) -> Result<Store, EngineError> {
     let db = options.open(dir)?;
     let space = SpaceId(1);
+    // Four × 32-bit dims = 128 bits: enough to pack ≤15 key bytes + a length trailer
+    // (E15 / O32). One × 32 collapsed longer keys through FNV and broke identity.
     db.register_or_get_space(
-        SpaceConfig::new(space, "editor", 1)
+        SpaceConfig::new(space, "editor", 4)
             .with_bits_per_dim(32)
             .with_shard_bits(0)
             .without_error_space(),
@@ -124,6 +128,7 @@ pub fn open_with_options(dir: impl AsRef<Path>, options: OpenOptions) -> Result<
             commit_log: Mutex::new(Vec::new()),
             undo_cursor: Mutex::new(0),
             suppress_undo: Mutex::new(false),
+            mint_seed: Mutex::new(crate::editor::mint::MintSeed::new()),
         }),
     };
     store.replay();
@@ -236,7 +241,20 @@ impl Store {
 
     /// Whether a record exists at `key`.
     pub fn has(&self, key: &[u8]) -> bool {
-        !self.records(key, &successor(key)).is_empty()
+        self.inner.current_value(key).is_some()
+    }
+
+    /// Mint the next child under `parent` from this session's [`MintSeed`] (E15).
+    pub fn mint_under(&self, parent: &[u8]) -> Option<Vec<u8>> {
+        let mut seed = self.inner.mint_seed.lock().expect("mint_seed lock");
+        let (bytes, _bits, next) = crate::editor::mint::mint_child(parent, *seed)?;
+        *seed = next;
+        Some(bytes)
+    }
+
+    /// Replace the session mint seed (tests / identical-machine checks).
+    pub fn set_mint_seed(&self, seed: crate::editor::mint::MintSeed) {
+        *self.inner.mint_seed.lock().expect("mint_seed lock") = seed;
     }
 
     /// Writes one record and syncs.
@@ -298,11 +316,6 @@ impl Store {
     }
 }
 
-fn successor(key: &[u8]) -> Vec<u8> {
-    let coord = Inner::coord(key).saturating_add(1);
-    coord.to_be_bytes().to_vec()
-}
-
 impl Drop for Store {
     fn drop(&mut self) {
         self.inner.db.pause_write_drain(false);
@@ -310,24 +323,51 @@ impl Drop for Store {
 }
 
 impl Inner {
-    pub(crate) fn coord(bytes: &[u8]) -> u32 {
-        if bytes.len() <= 4 {
-            let mut buf = [0u8; 4];
-            let n = bytes.len();
-            if n > 0 {
-                buf[4 - n..].copy_from_slice(&bytes[..n]);
-            }
-            return u32::from_be_bytes(buf);
-        }
-        fnv1a(bytes) | 0x8000_0000
-    }
-
-    pub(crate) fn bytes_of(coord: u32) -> Vec<u8> {
-        coord.to_be_bytes().to_vec()
-    }
-
+    /// Pack ≤15 key bytes into four `u32` coords. Byte 15 of the 16-byte buffer is
+    /// the length trailer so unpacking does not guess (E15 / O32).
     pub(crate) fn point_of(bytes: &[u8]) -> DimensionVector {
-        DimensionVector::new(vec![Self::coord(bytes)])
+        assert!(
+            bytes.len() <= 15,
+            "editor key exceeds 15-byte pack limit: {} bytes",
+            bytes.len()
+        );
+        let mut buf = [0u8; 16];
+        buf[..bytes.len()].copy_from_slice(bytes);
+        buf[15] = bytes.len() as u8;
+        DimensionVector::new(vec![
+            u32::from_be_bytes([buf[0], buf[1], buf[2], buf[3]]),
+            u32::from_be_bytes([buf[4], buf[5], buf[6], buf[7]]),
+            u32::from_be_bytes([buf[8], buf[9], buf[10], buf[11]]),
+            u32::from_be_bytes([buf[12], buf[13], buf[14], buf[15]]),
+        ])
+    }
+
+    pub(crate) fn bytes_of_point(point: &DimensionVector) -> Vec<u8> {
+        let c = &point.coords;
+        assert!(c.len() == 4, "editor space is 4-dimensional");
+        let mut buf = [0u8; 16];
+        for (i, coord) in c.iter().enumerate() {
+            buf[i * 4..(i + 1) * 4].copy_from_slice(&coord.to_be_bytes());
+        }
+        let len = buf[15] as usize;
+        assert!(len <= 15, "corrupt key length trailer {len}");
+        buf[..len].to_vec()
+    }
+
+    /// Next key in lexicographic order (same length, then longer).
+    pub(crate) fn successor_key(key: &[u8]) -> Vec<u8> {
+        let mut out = key.to_vec();
+        for i in (0..out.len()).rev() {
+            if out[i] < 0xFF {
+                out[i] += 1;
+                for j in i + 1..out.len() {
+                    out[j] = 0;
+                }
+                return out;
+            }
+        }
+        out.push(0);
+        out
     }
 
     pub(crate) fn records_in_range(
@@ -336,23 +376,22 @@ impl Inner {
         end: &[u8],
         at: u64,
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, EngineError> {
-        let lo = Self::coord(start);
-        let hi_excl = Self::coord(end);
-        if hi_excl == 0 || lo >= hi_excl {
+        if start >= end {
             return Ok(Vec::new());
         }
-        let min = DimensionVector::new(vec![lo]);
-        let max = DimensionVector::new(vec![hi_excl - 1]);
+        // Hilbert bbox on packed coords is not the same as lexicographic key order
+        // once length trailers differ across axes. Scan the space and filter by key
+        // (editor cardinality is small; correctness over cleverness — E15).
+        let min = DimensionVector::new(vec![0, 0, 0, 0]);
+        let max = DimensionVector::new(vec![u32::MAX, u32::MAX, u32::MAX, u32::MAX]);
         let txn = self.db.read().as_of(RevisionId::legacy(at));
         match txn.query_bbox(self.space, min, max) {
             Ok(rows) => {
                 let mut out: Vec<(Vec<u8>, Vec<u8>)> = rows
                     .into_iter()
                     .filter(|r| !r.tombstone)
-                    .map(|r| {
-                        let coord = r.address.point.coords.first().copied().unwrap_or(0);
-                        (Self::bytes_of(coord), r.data)
-                    })
+                    .map(|r| (Self::bytes_of_point(&r.address.point), r.data))
+                    .filter(|(k, _)| k.as_slice() >= start && k.as_slice() < end)
                     .collect();
                 out.sort_by(|a, b| a.0.cmp(&b.0));
                 Ok(out)
@@ -376,14 +415,15 @@ impl Inner {
     /// the value itself sidesteps the mismatch instead of trying to reconcile the
     /// two clocks.
     pub(crate) fn current_value(&self, address: &[u8]) -> Option<Vec<u8>> {
-        let end = {
-            let mut c = Self::coord(address);
-            c = c.saturating_add(1);
-            Self::bytes_of(c)
-        };
+        let point = Self::point_of(address);
         let at = self.db.stable_revision().legacy_sequence();
-        match self.records_in_range(address, &end, at) {
-            Ok(mut rows) => rows.pop().map(|(_, payload)| payload),
+        let txn = self.db.read().as_of(RevisionId::legacy(at));
+        match txn.query_bbox(self.space, point.clone(), point) {
+            Ok(rows) => rows
+                .into_iter()
+                .filter(|r| !r.tombstone)
+                .find(|r| Self::bytes_of_point(&r.address.point) == address)
+                .map(|r| r.data),
             Err(e) => panic!("store read failed (not a missing value): {e}"),
         }
     }
@@ -453,11 +493,3 @@ impl Inner {
     }
 }
 
-fn fnv1a(bytes: &[u8]) -> u32 {
-    let mut h = 0x811c9dc5u32;
-    for b in bytes {
-        h ^= u32::from(*b);
-        h = h.wrapping_mul(0x0100_0193);
-    }
-    h
-}

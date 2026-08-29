@@ -37,18 +37,9 @@ impl Port for Values {
         if let Some(payload) = payload {
             return Some(Value::new(Tag::new("value"), payload));
         }
-        let end = {
-            let mut c = Inner::coord(at.as_bytes());
-            c = c.saturating_add(1);
-            Inner::bytes_of(c)
-        };
-        let at_rev = self.inner.db.stable_revision().legacy_sequence();
-        match self.inner.records_in_range(at.as_bytes(), &end, at_rev) {
-            Ok(rows) => rows
-                .into_iter()
-                .next()
-                .map(|(_, payload)| Value::new(Tag::new("value"), payload)),
-            Err(e) => panic!("value read failed (not a missing value): {e}"),
+        match self.inner.current_value(at.as_bytes()) {
+            Some(payload) => Some(Value::new(Tag::new("value"), payload)),
+            None => None,
         }
     }
 

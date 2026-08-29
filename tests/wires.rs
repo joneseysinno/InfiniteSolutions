@@ -75,7 +75,7 @@ fn ends(store: &facade::Store) -> ((f64, f64), (f64, f64)) {
     let span = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::WIRE_AB_KEY)
+        .find(|p| p.at.as_bytes() == addresses::wire_ab_key())
         .and_then(|p| p.span)
         .expect("the wire is placed with two endpoints");
     ((span.0.x, span.0.y), (span.1.x, span.1.y))
@@ -202,7 +202,7 @@ fn deleting_the_wire_record_takes_the_line_off_the_screen() {
         "the wire starts on screen",
     );
 
-    store.delete_key(addresses::WIRE_AB_KEY);
+    store.delete_key(addresses::wire_ab_key());
     store.draw_with(&mut surface);
     near(
         Surface::pixel(&surface.read_back().expect("read back"), WIDTH, mid_x, mid_y),
@@ -217,13 +217,13 @@ fn a_wire_with_an_endpoint_off_screen_is_not_placed() {
     // not on screen there is no honest line to draw, and drawing one anyway is how a
     // wire ends up pointing at nothing.
     let (_dir, store) = seeded();
-    store.delete_key(addresses::NODE_B_KEY);
+    store.delete_key(addresses::node_b_key());
     let placement = store.place_now();
     assert!(
         placement
             .placed
             .iter()
-            .all(|p| p.at.as_bytes() != addresses::WIRE_AB_KEY),
+            .all(|p| p.at.as_bytes() != addresses::wire_ab_key()),
         "with one end gone the wire is not placed"
     );
     let total: usize = placement.batches.iter().map(|b| b.count).sum();

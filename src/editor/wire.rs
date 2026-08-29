@@ -12,13 +12,13 @@ use crate::facade::{
 /// Whether shift-wire mode is active (gesture address or portal shift+drag).
 pub fn mode_active(store: &Store) -> bool {
     store
-        .pending_at(addresses::WIRE_MODE_KEY)
+        .pending_at(addresses::wire_mode_key())
         .is_some_and(|b| b.first().copied().unwrap_or(0) != 0)
 }
 
-/// A draggable wire endpoint on the canvas — not an existing wire primitive.
+/// A draggable wire endpoint under the canvas — not an existing wire primitive.
 pub fn is_endpoint(store: &Store, key: &[u8]) -> bool {
-    if key.len() < 2 || key[0] != addresses::CANVAS_KEY[0] {
+    if key.len() <= addresses::canvas_key().len() || !key.starts_with(addresses::canvas_key()) {
         return false;
     }
     let Some(payload) = store
@@ -115,26 +115,26 @@ fn port(name: &str, incoming: bool, tag: &str, required: bool) -> PortRecord {
     }
 }
 
-/// Latches [`addresses::WIRE_FROM_KEY`] and mints [`addresses::WIRE_ADDR_KEY`].
+/// Latches [`addresses::wire_from_key()`] and mints [`addresses::wire_addr_key()`].
 pub fn begin(store: &Store, from: &[u8]) -> bool {
     let parent = mint::parent_key(from);
-    let Some(addr) = mint::next_child(store, &parent) else {
+    let Some(addr) = store.mint_under(&parent) else {
         return false;
     };
-    store.amend(addresses::WIRE_FROM_KEY, from);
-    store.amend(addresses::WIRE_ADDR_KEY, &addr);
+    store.amend(addresses::wire_from_key(), from);
+    store.amend(addresses::wire_addr_key(), &addr);
     true
 }
 
 /// Updates preview graph and target while the pointer moves.
 pub fn update(store: &Store, to: &[u8], mismatch: bool) {
-    let Some(from) = store.pending_at(addresses::WIRE_FROM_KEY) else {
+    let Some(from) = store.pending_at(addresses::wire_from_key()) else {
         return;
     };
     if !is_endpoint(store, to) || from == to {
         return;
     }
-    store.amend(addresses::WIRE_TO_KEY, to);
+    store.amend(addresses::wire_to_key(), to);
     store.amend(
         addresses::GRAPH_ROOT_KEY,
         &preview_graph(&from, to, mismatch),
@@ -143,16 +143,16 @@ pub fn update(store: &Store, to: &[u8], mismatch: bool) {
 
 /// Queues commit of the minted wire record and the preview graph.
 pub fn finish(store: &Store, to: &[u8], mismatch: bool) {
-    let Some(from) = store.pending_at(addresses::WIRE_FROM_KEY) else {
+    let Some(from) = store.pending_at(addresses::wire_from_key()) else {
         return;
     };
     if is_endpoint(store, to) && from != to {
-        store.amend(addresses::WIRE_TO_KEY, to);
+        store.amend(addresses::wire_to_key(), to);
         store.amend(
             addresses::GRAPH_ROOT_KEY,
             &preview_graph(&from, to, mismatch),
         );
-        store.amend(addresses::WIRE_COMMIT_KEY, &[1]);
+        store.amend(addresses::wire_commit_key(), &[1]);
         app::connect(store, &from, to);
     }
 }

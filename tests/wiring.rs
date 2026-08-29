@@ -18,7 +18,7 @@ fn mismatch_graph() -> Vec<u8> {
         compilable: false,
         blocks: vec![
             BlockRecord {
-                at: addresses::NODE_A_KEY.to_vec(),
+                at: addresses::node_a_key().to_vec(),
                 kind: "native".into(),
                 target: b"offset".to_vec(),
                 ports: vec![
@@ -28,7 +28,7 @@ fn mismatch_graph() -> Vec<u8> {
                 ],
             },
             BlockRecord {
-                at: addresses::NODE_B_KEY.to_vec(),
+                at: addresses::node_b_key().to_vec(),
                 kind: "native".into(),
                 target: b"commit".to_vec(),
                 ports: vec![
@@ -38,8 +38,8 @@ fn mismatch_graph() -> Vec<u8> {
             },
         ],
         wires: vec![WireRecord {
-            sources: vec![(addresses::NODE_A_KEY.to_vec(), "delta".into())],
-            sinks: vec![(addresses::NODE_B_KEY.to_vec(), "addr".into())],
+            sources: vec![(addresses::node_a_key().to_vec(), "delta".into())],
+            sinks: vec![(addresses::node_b_key().to_vec(), "addr".into())],
         }],
     })
 }
@@ -97,7 +97,7 @@ fn a_pending_wire_links_before_commit_and_a_mismatch_zooms_to_its_site() {
         preview.findings
     );
     let finding = mismatch[0];
-    assert_eq!(finding.site.as_bytes(), addresses::NODE_B_KEY);
+    assert_eq!(finding.site.as_bytes(), addresses::node_b_key());
     assert!(!finding.said.is_empty());
     assert!(!finding.wanted.is_empty());
     assert!(!finding.remedy.is_empty());

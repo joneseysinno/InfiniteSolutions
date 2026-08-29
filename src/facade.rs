@@ -19,7 +19,7 @@ mod run;
 mod undo;
 
 pub use addr::{
-    compositor_addr, presenter_addr, presenter_revision, runtime_addr, runtime_revision,
+    bits_of, compositor_addr, presenter_addr, presenter_revision, runtime_addr, runtime_revision,
     significant_bits,
 };
 pub use artifacts::{register, register_plan};

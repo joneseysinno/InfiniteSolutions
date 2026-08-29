@@ -8,14 +8,17 @@
 pub mod addresses;
 pub mod blocks;
 pub mod mint;
+pub mod spec;
 pub mod tags;
 pub mod toolbar;
 
 mod app;
+mod behaviour_seed;
 mod genesis;
 mod inspector;
 mod palette;
 mod run;
+mod screen_seed;
 mod styles;
 mod wire;
 

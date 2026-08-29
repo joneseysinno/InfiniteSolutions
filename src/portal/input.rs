@@ -22,7 +22,7 @@ impl Input {
     pub fn on_pointer_button(&mut self, store: &Store, flags: u8) {
         store.amend(addresses::POINTER_BUTTON.as_bytes(), &[flags]);
         if flags == 0 {
-            store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+            store.amend(addresses::release_pulse_key(), &[1]);
         }
     }
 

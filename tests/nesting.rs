@@ -63,11 +63,11 @@ fn a_closed_space_does_not_show_its_interior() {
     let (_dir, store) = seeded();
     let keys = placed_keys(&store);
 
-    assert!(holds(&keys, addresses::CANVAS_KEY), "the canvas is placed");
-    assert!(holds(&keys, addresses::NODE_A_KEY), "node A is placed");
-    assert!(holds(&keys, addresses::NODE_B_KEY), "node B is placed");
+    assert!(holds(&keys, addresses::canvas_key()), "the canvas is placed");
+    assert!(holds(&keys, addresses::node_a_key()), "node A is placed");
+    assert!(holds(&keys, addresses::node_b_key()), "node B is placed");
     assert!(
-        !holds(&keys, addresses::NODE_A1_KEY) && !holds(&keys, addresses::NODE_A2_KEY),
+        !holds(&keys, addresses::node_a1_key()) && !holds(&keys, addresses::node_a2_key()),
         "node A is closed at the resting camera, so its interior is not on screen; \
          placed: {keys:02x?}"
     );
@@ -78,18 +78,18 @@ fn zoom_opens_a_space_and_reveals_the_nodes_inside_it() {
     // The claim itself. One camera change, no edit to any record, and a level of the
     // graph that was a single node becomes a populated space.
     let (_dir, store) = seeded();
-    assert!(!holds(&placed_keys(&store), addresses::NODE_A1_KEY));
+    assert!(!holds(&placed_keys(&store), addresses::node_a1_key()));
 
-    store.zoom_to(addresses::NODE_A_KEY);
+    store.zoom_to(addresses::node_a_key());
     let keys = placed_keys(&store);
 
     assert!(
-        holds(&keys, addresses::NODE_A_KEY),
+        holds(&keys, addresses::node_a_key()),
         "node A is still placed — entering a space does not delete the node; \
          placed: {keys:02x?}"
     );
     assert!(
-        holds(&keys, addresses::NODE_A1_KEY) && holds(&keys, addresses::NODE_A2_KEY),
+        holds(&keys, addresses::node_a1_key()) && holds(&keys, addresses::node_a2_key()),
         "zoomed into node A, its two interior nodes are on screen; placed: {keys:02x?}"
     );
 }
@@ -100,7 +100,7 @@ fn an_interior_node_is_placed_inside_its_host_and_not_beside_it() {
     // the interior nodes appeared as *siblings*, laid out beside their host. This is
     // the assertion that tells the two apart.
     let (_dir, store) = seeded();
-    store.zoom_to(addresses::NODE_A_KEY);
+    store.zoom_to(addresses::node_a_key());
     let placement = store.place_now();
     let find = |key: &[u8]| {
         placement
@@ -109,8 +109,8 @@ fn an_interior_node_is_placed_inside_its_host_and_not_beside_it() {
             .find(|p| p.at.as_bytes() == key)
             .map(|p| p.rect)
     };
-    let host = find(addresses::NODE_A_KEY).expect("node A is placed");
-    let inner = find(addresses::NODE_A1_KEY).expect("node A's first interior node is placed");
+    let host = find(addresses::node_a_key()).expect("node A is placed");
+    let inner = find(addresses::node_a1_key()).expect("node A's first interior node is placed");
 
     assert!(
         inner.min.x >= host.min.x - 1e-9
@@ -126,10 +126,10 @@ fn the_address_of_an_interior_node_says_it_is_interior() {
     // Containment is a property of the address, not of a field someone remembered to
     // set. This is the half of D45 that is (a) rather than the descend rule, and it is
     // what a property inspector or a permission check (O10) would rely on.
-    let a = facade::presenter_addr(addresses::NODE_A_KEY);
-    let a1 = facade::presenter_addr(addresses::NODE_A1_KEY);
-    let b = facade::presenter_addr(addresses::NODE_B_KEY);
-    let canvas = facade::presenter_addr(addresses::CANVAS_KEY);
+    let a = facade::presenter_addr(addresses::node_a_key());
+    let a1 = facade::presenter_addr(addresses::node_a1_key());
+    let b = facade::presenter_addr(addresses::node_b_key());
+    let canvas = facade::presenter_addr(addresses::canvas_key());
 
     assert!(canvas.contains(&a), "the canvas contains node A");
     assert!(a.contains(&a1), "node A contains its own interior node");
@@ -149,12 +149,12 @@ fn a_probe_inside_an_open_space_answers_with_the_interior_node() {
     // P1 in `hyper-ui` is the picture and the pointer disagreeing. Once a space opens,
     // the pointer has to follow it in.
     let (_dir, store) = seeded();
-    store.zoom_to(addresses::NODE_A_KEY);
+    store.zoom_to(addresses::node_a_key());
     let placement = store.place_now();
     let inner = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::NODE_A1_KEY)
+        .find(|p| p.at.as_bytes() == addresses::node_a1_key())
         .expect("the interior node is placed")
         .rect;
     let mid_x = (inner.min.x + inner.max.x) * 0.5;
@@ -162,7 +162,7 @@ fn a_probe_inside_an_open_space_answers_with_the_interior_node() {
 
     assert_eq!(
         store.probe_at(mid_x, mid_y).as_deref(),
-        Some(addresses::NODE_A1_KEY),
+        Some(addresses::node_a1_key()),
         "a point inside the interior node answers with the interior node"
     );
 }

@@ -31,14 +31,14 @@ pub fn hit_at(store: &Store, x: f64, y: f64) -> Option<Vec<u8>> {
 /// Resolves the parent space and mints a child address at a surface point.
 pub fn prepare_drop(store: &Store, surface_x: f64, surface_y: f64, hit: &[u8]) -> bool {
     let parent = mint::placement_parent(store, hit);
-    let Some(addr) = mint::next_child(store, &parent) else {
+    let Some(addr) = store.mint_under(&parent) else {
         return false;
     };
     let Some(origin) = mint::local_origin(store, &parent, surface_x, surface_y) else {
         return false;
     };
-    store.amend(addresses::PLACE_ADDR_KEY, &addr);
-    store.amend(addresses::PLACE_ORIGIN_KEY, &origin);
-    store.amend(addresses::PLACE_COMMIT_KEY, &[1]);
+    store.amend(addresses::place_addr_key(), &addr);
+    store.amend(addresses::place_origin_key(), &origin);
+    store.amend(addresses::place_commit_key(), &[1]);
     true
 }

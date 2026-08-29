@@ -1371,6 +1371,10 @@ structure would be the letter against the spirit.
 
 ## D45 — An address carries its significant length; apparent size decides descent · **locked** · 2026-08-28 · closes O23
 
+*Amended 2026-08-29 by D57: the nibble-per-level layout and `significant_bits` as
+depth-by-inference are replaced. Carried length and apparent-size descent (this
+decision's core) stay. See D57.*
+
 Two changes, one decision, because either alone leaves the claim untrue.
 
 **(1) `infinite_presenter::core::Addr` gains a bit length.** `Addr::with_bits(bytes,
@@ -1655,20 +1659,24 @@ for one fact — and would bypass E6's discipline.
 
 ---
 
-## D53 — The editor mints child addresses · **locked** · 2026-08-28
+## D53 — The editor mints child addresses · **superseded by D57** · 2026-08-28
 
 **New blocks receive the next free child nibble under the drop target (O28
 single-session answer).** [`mint::next_child`](src/editor/mint.rs) scans the screen
-range; the palette drag path writes [`PLACE_ADDR_KEY`](src/editor/addresses.rs) in
+range; the palette drag path writes [`place_addr_key`](src/editor/addresses.rs) in
 [`run.rs`](src/editor/run.rs) and the behaviour composition amends/commits the record
 there — not `store.put` from panel code.
+
+**Superseded 2026-08-29 by D57:** store-scan mint and the fifteen-child nibble ceiling
+are gone. Interactive mint uses a session `MintSeed`; authored addresses use named
+slots. Verified by `tests/mint_derived.rs` and `tests/palette.rs`.
 
 **What forced it.** E13.4 is the first gesture that creates geometry. Without D45's
 nibble-per-level scheme, "under the parent" is meaningless; without editor-side minting,
 the facade would need to know the editor's allocation policy (R2).
 
-**Where it lives.** [`PALETTE_KEY`](src/editor/addresses.rs) panel and
-[`PALETTE_PLAIN_KEY`](src/editor/addresses.rs) template in genesis; place chain in
+**Where it lives.** [`palette_key`](src/editor/addresses.rs) panel and
+[`palette_plain_key`](src/editor/addresses.rs) template in genesis; place chain in
 [`genesis.rs`](src/editor/genesis.rs).
 
 **Verified by.** `tests/palette.rs`.
@@ -1729,5 +1737,60 @@ A counter is the smallest graph that reads one input (a click) and writes one pe
 [`genesis.rs`](src/editor/genesis.rs).
 
 **Verified by.** `tests/counter.rs`.
+
+---
+
+## D57 — Carried length, pure `child`, and `MintSeed` · **locked** · 2026-08-29 · closes O32 · amends D45 · supersedes D53
+
+**Addresses are opaque byte strings. Significant length is carried
+(`bits = 8 × key.len()` under the slot encoding) — never inferred by scanning for a
+last non-zero nibble. A child is pure
+`child(parent, parent_bits, slot) → (bytes, bits)` appending a big-endian `u16`
+(slot `0` reserved). Authored Spec / genesis picks a stable slot; interactive mint
+(palette / wire) threads a session [`MintSeed`](src/editor/mint.rs) with no store
+scan.**
+
+**What forced it.** AUTHORING-STACK measured fifteen children max (`next > 0x0F`),
+store-scan mint (D53), and eighty-three address constants. D45's rejection of
+variable-length keys assumed the old bit-comparison descend rule; apparent-size
+descent (D45 §2) already separates *who contains whom* from *when interiors open*, so
+carried length no longer costs 256× zoom per level. E15's green checks (a)(b)(c)(d)
+require derivation without a ceiling and without recycling slots from live rows.
+
+**Where it lives.** [`editor/mint.rs`](src/editor/mint.rs); façade pack in
+[`facade/open.rs`](src/facade/open.rs) (≤15 key bytes + length trailer);
+[`facade/addr.rs`](src/facade/addr.rs) `bits_of` / `presenter_addr`; bootstrap vs
+derived split in [`editor/addresses.rs`](src/editor/addresses.rs) (D34 rewrite, fourth
+time — six region roots literal; content via `child_key`).
+
+**Verified by.** `tests/mint_derived.rs`, `tests/mint_identical.rs`,
+`tests/genesis.rs` hierarchy, `editor::mint` unit tests. *Must stop passing:*
+`next_child` store scan; depth from nibble inference.
+
+**Rejected.** Keep four-bit nibbles and widen only key width — breadth stays fifteen.
+Infer bits from trailing zeros — E15 Guard 5. Recycle `max+1` after delete — fails
+check (d).
+
+---
+
+## D58 — Spec and builders live in the editor · **locked** · 2026-08-29 · closes O34
+
+**Authoring sugar (`Spec`, flatten, builders) lives in
+[`editor/spec.rs`](src/editor/spec.rs).** It calls façade `encode_space` / mint. The
+façade does not name the editor (R2). Nesting at authoring time does not put a
+containment field on the committed record — containment is address prefix only
+(Innovator Spec seam; vocabulary.md remains alphabet doctrine for E18a).
+
+**What forced it.** Genesis was 675 lines of hand-written `SpaceRecord`s. E16 needs a
+seam that flattens nested sugar to addressed puts without smuggling a widget toolkit
+or a parent pointer on the record.
+
+**Where it lives.** [`spec.rs`](src/editor/spec.rs),
+[`screen_seed.rs`](src/editor/screen_seed.rs),
+[`behaviour_seed.rs`](src/editor/behaviour_seed.rs),
+[`genesis.rs`](src/editor/genesis.rs) (under 150 lines).
+
+**Verified by.** `tests/spec_flatten.rs`, `tests/genesis.rs` (E4 discard unchanged;
+line-count check).
 
 ---

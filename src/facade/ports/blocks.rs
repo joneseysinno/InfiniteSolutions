@@ -270,16 +270,10 @@ impl Primitive for Read {
         if let Some(payload) = pending {
             return vec![Value::new(Tag::new("value"), payload)];
         }
-        let end = {
-            let mut c = Inner::coord(&addr);
-            c = c.saturating_add(1);
-            Inner::bytes_of(c)
-        };
-        let at_rev = self.inner.db.stable_revision().legacy_sequence();
-        let payload = match self.inner.records_in_range(&addr, &end, at_rev) {
-            Ok(mut rows) => rows.pop().map(|(_, p)| p).unwrap_or_default(),
-            Err(e) => panic!("value read failed (not a missing value): {e}"),
-        };
+        let payload = self
+            .inner
+            .current_value(&addr)
+            .unwrap_or_default();
         vec![Value::new(Tag::new("value"), payload)]
     }
 }

@@ -52,13 +52,13 @@ fn drag(store: &facade::Store, delta: (f64, f64)) {
     let target = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::NODE_A_KEY)
+        .find(|p| p.at.as_bytes() == addresses::node_a_key())
         .or_else(|| placement.placed.iter().find(|p| p.accepts))
         .expect("a space to drag");
     let mid_x = (target.rect.min.x + target.rect.max.x) * 0.5;
     let mid_y = (target.rect.min.y + target.rect.max.y) * 0.5;
     store.amend(
-        addresses::DRAG_FROM_KEY,
+        addresses::drag_from_key(),
         &point(mid_x - delta.0, mid_y - delta.1),
     );
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(mid_x, mid_y));
@@ -66,18 +66,14 @@ fn drag(store: &facade::Store, delta: (f64, f64)) {
     editor::run(store);
 }
 
-fn any_origin(store: &facade::Store) -> Vec<([u8; 4], [f64; 2])> {
+fn any_origin(store: &facade::Store) -> Vec<(Vec<u8>, [f64; 2])> {
     let keys = [
-        addresses::CANVAS_KEY,
-        addresses::NODE_A_KEY,
-        addresses::NODE_B_KEY,
+        addresses::canvas_key(),
+        addresses::node_a_key(),
+        addresses::node_b_key(),
     ];
     keys.iter()
-        .map(|k| {
-            let mut id = [0u8; 4];
-            id.copy_from_slice(k);
-            (id, live_origin(store, k))
-        })
+        .map(|k| (k.to_vec(), live_origin(store, k)))
         .collect()
 }
 
@@ -97,9 +93,9 @@ fn drag_is_performed_by_the_interpreted_composition() {
         "the interpreted composition must move the space"
     );
 
-    let delta_out = slot(addresses::BEHAVIOUR_OFFSET_KEY, "delta");
-    let from_in = slot(addresses::BEHAVIOUR_OFFSET_KEY, "from");
-    let to_in = slot(addresses::BEHAVIOUR_OFFSET_KEY, "to");
+    let delta_out = slot(addresses::behaviour_offset_key(), "delta");
+    let from_in = slot(addresses::behaviour_offset_key(), "from");
+    let to_in = slot(addresses::behaviour_offset_key(), "to");
     let declared = store.inputs_of(&delta_out);
     assert_eq!(
         declared,

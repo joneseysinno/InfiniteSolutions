@@ -1,7 +1,7 @@
 # Infinite Solutions — The Authoring Stack (E14–E20)
 
-> **Status:** draft 2, 2026-08-29. **E14 and E14.1 landed** (readable text via glyphon;
-> hysteresis threaded through `place`). Remaining stages E15–E20 are not started.
+> **Status:** draft 3, 2026-08-29. **E14, E14.1, E15, and E16 landed** (readable text via glyphon;
+> hysteresis threaded through `place`; derived identity + Spec authoring). Remaining stages E17–E20 are not started.
 > R20 / D41: a stage is `landed` only when its **Verified by** cell names a check.
 >
 > **Records nothing** (R29). Every refactor below is a *proposal*; every trigger is a
@@ -18,6 +18,8 @@
 > nine stages under one thesis.
 >
 > Written under R28. Raises findings 25–29. Opens O32–O35.
+> E15–E16 stage plan: [`E15-E16-IDENTITY-AUTHORING.md`](./E15-E16-IDENTITY-AUTHORING.md)
+> (O32 → D57, O34 → D58).
 
 ---
 
@@ -182,8 +184,8 @@ no way to *author* a four-block composition, so it was compiled in.
 |---|---|---|---|---|
 | **E14** | **Text you can read** | landed | `tests/readable_text.rs` | A run containing every digit and mixed case renders with **distinct ink per character**: two different characters produce different ink, and no character resolves to the fallback box. *Must stop passing:* the current font, where `1` and `7` are identical |
 | **E14.1** | Hysteresis reaches the running path | landed | `crates/infinite-presenter/tests/hysteresis_live.rs` | Place twice across a level boundary through a real `View`; the level does not change twice inside one dead band. *Must stop passing:* `detail(…, None)` at both `place.rs` call sites |
-| **E15** | **Derived identity** | not started | — | (a) A space holds **200 children**. (b) Two sessions mint concurrently, no collision. (c) The same authored screen produces byte-identical addresses on two machines. (d) Delete a child, mint again, undo the delete — the restored value lands on its own address. *Must stop passing:* `next_child`'s store scan, and `significant_bits`' inference (§2.1) |
-| **E16** | **The authoring vocabulary** | not started | — | `genesis.rs` under 150 lines while seeding **strictly more** spaces than today; E4's discard test unchanged; the committed store carries no containment field, only addresses. *Must stop passing:* 19 hand-written `SpaceRecord` literals |
+| **E15** | **Derived identity** | **landed** | [`E15-E16-IDENTITY-AUTHORING.md`](./E15-E16-IDENTITY-AUTHORING.md) E15.0–E15.3 | (a) A space holds **200 children**. (b) Two sessions mint concurrently, no collision. (c) The same authored screen produces byte-identical addresses on two machines. (d) Delete a child, mint again, undo the delete — the restored value lands on its own address. *Must stop passing:* `next_child`'s store scan, and `significant_bits`' inference (§2.1). **O32 → D57** |
+| **E16** | **The authoring vocabulary** | **landed** | [`E15-E16-IDENTITY-AUTHORING.md`](./E15-E16-IDENTITY-AUTHORING.md) E16.0–E16.2 | `genesis.rs` under 150 lines while seeding **strictly more** spaces than today; E4's discard test unchanged; the committed store carries no containment field, only addresses. *Must stop passing:* 19 hand-written `SpaceRecord` literals. **O34 → D58** |
 | **E17** | **The record is open** | not started | — | A fourth shape touches **no** existing record field and **no** existing decoder branch. *Must stop passing:* `link` and `text` as `SpaceRecord` fields |
 | **E18a** | **Declare the alphabet** | not started | — | The set is written down with each element's two-domain justification (R32) and registered by string key. Both bounding rules of §5.5 run in `check-rules.sh`. *Must stop passing:* the current native registry, where §5.3's six one-offs each fail rule 1 |
 | **E18b** | **Build the components from it** | not started | — | Two different screens share one `field_row` **definition stored in the store**; editing the definition changes both **with no recompile**. And: **at least one block in the system has `kind != "native"`**. *Must stop passing:* today's count of composed blocks, which is zero |
@@ -416,9 +418,9 @@ never once delegated. This is the most-cited unused decision in the project.
 
 | # | Item | Trigger |
 |---|---|---|
-| **O32** | **What encodes an address's depth?** *(widened in draft 2 — draft 1 asked only what derives an address.)* Candidates: variable-length keys where length is structural (D45(a) + the new descend rule); per-level bit allocation, which is the store's own *Σ dᵢℓᵢ* model; a carried length that is never re-inferred. The choice decides breadth, depth, whether two machines agree, and whether `max+1` recycling can exist at all. bion's `IdSeed` answers the *derivation* half | E15. Needs its own decision record; this is R-B |
+| **O32** | **What encodes an address's depth?** | **Locked as D57**: carried length + pure `child` + `MintSeed`; 16-bit slots; no nibble inference (R-B) |
 | **O33** | **Is a component a definition or a delegation?** Innovator used an `instance_of` edge to a `component_def` node. D27 says use is delegation and `Instance` is not a primitive. They may be one thing said twice, or D27 may not cover appearance | E18a |
-| **O34** | **Does the authoring vocabulary live in the editor or the facade?** A vocabulary that mints addresses and encodes records touches both. R2 forbids the facade naming the editor; if it is platform, it is the first thing above the four layers that is not the editor | E16 |
+| **O34** | **Does the authoring vocabulary live in the editor or the facade?** | **Locked as D58**: Spec/builders in the editor; façade encode-only (R2) |
 | **O35** | **Is arrangement a shape kind or a property of the parent?** §5.4. Innovator made `Stack` a particle kind; the argument against is that a primitive which draws nothing is a smell, and the record already carries the extents. Deciding it wrong is cheap to reverse before E18b and expensive after | E18a |
 | O26 | Where a text run's string lives | **Answered by R-D as option (b)**, ahead of its stated trigger, because §2.3's argument is structural rather than about run length |
 | O28 | Who mints an address | Subsumed by O32 |

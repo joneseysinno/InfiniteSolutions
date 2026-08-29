@@ -47,12 +47,12 @@ fn center(store: &facade::Store, key: &[u8]) -> (f64, f64) {
 }
 
 fn drag_palette_to(store: &facade::Store, template: &[u8], drop_x: f64, drop_y: f64) -> Vec<u8> {
-    let minted = mint::next_child(store, addresses::CANVAS_KEY).expect("mint child");
-    let origin = mint::local_origin(store, addresses::CANVAS_KEY, drop_x, drop_y).expect("origin");
-    store.amend(addresses::PALETTE_FROM_KEY, template);
-    store.amend(addresses::PLACE_ADDR_KEY, &minted);
-    store.amend(addresses::PLACE_ORIGIN_KEY, &origin);
-    store.amend(addresses::PLACE_COMMIT_KEY, &[1]);
+    let minted = store.mint_under(addresses::canvas_key()).expect("mint child");
+    let origin = mint::local_origin(store, addresses::canvas_key(), drop_x, drop_y).expect("origin");
+    store.amend(addresses::palette_from_key(), template);
+    store.amend(addresses::place_addr_key(), &minted);
+    store.amend(addresses::place_origin_key(), &origin);
+    store.amend(addresses::place_commit_key(), &[1]);
     editor::run(store);
     store.commit_at(&minted);
     drain(store);
@@ -67,7 +67,7 @@ fn wire(store: &facade::Store, from: &[u8], to: &[u8]) {
         Some(from),
         "wire must start from the bump block"
     );
-    store.amend(addresses::WIRE_MODE_KEY, &[1]);
+    store.amend(addresses::wire_mode_key(), &[1]);
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(fx, fy));
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
     editor::run(store);
@@ -79,13 +79,13 @@ fn wire(store: &facade::Store, from: &[u8], to: &[u8]) {
         "wire must finish on the total block"
     );
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
-    store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+    store.amend(addresses::release_pulse_key(), &[1]);
     editor::run(store);
-    if let Some(addr) = store.pending_at(addresses::WIRE_ADDR_KEY) {
+    if let Some(addr) = store.pending_at(addresses::wire_addr_key()) {
         store.commit_at(&addr);
     }
     drain(store);
-    store.discard_at(addresses::WIRE_MODE_KEY);
+    store.discard_at(addresses::wire_mode_key());
 }
 
 fn click(store: &facade::Store, key: &[u8]) {
@@ -94,7 +94,7 @@ fn click(store: &facade::Store, key: &[u8]) {
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
     editor::run(store);
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
-    store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+    store.amend(addresses::release_pulse_key(), &[1]);
     editor::run(store);
     drain(store);
 }
@@ -110,7 +110,7 @@ fn canvas_drop(store: &facade::Store, x_frac: f64, y_frac: f64) -> (f64, f64) {
     let canvas = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::CANVAS_KEY)
+        .find(|p| p.at.as_bytes() == addresses::canvas_key())
         .expect("canvas");
     let x = canvas.rect.min.x + (canvas.rect.max.x - canvas.rect.min.x) * x_frac;
     let y = canvas.rect.min.y + (canvas.rect.max.y - canvas.rect.min.y) * y_frac;
@@ -120,11 +120,11 @@ fn canvas_drop(store: &facade::Store, x_frac: f64, y_frac: f64) -> (f64, f64) {
 fn build_counter(store: &facade::Store) -> (Vec<u8>, Vec<u8>) {
     let (total_x, total_y) = canvas_drop(store, 0.25, 0.40);
     let (bump_x, bump_y) = canvas_drop(store, 0.70, 0.40);
-    let total = drag_palette_to(store, addresses::PALETTE_TOTAL_KEY, total_x, total_y);
-    let bump = drag_palette_to(store, addresses::PALETTE_BUMP_KEY, bump_x, bump_y);
+    let total = drag_palette_to(store, addresses::palette_total_key(), total_x, total_y);
+    let bump = drag_palette_to(store, addresses::palette_bump_key(), bump_x, bump_y);
     wire(store, &bump, &total);
     assert!(
-        store.has(addresses::APP_ROOT_KEY),
+        store.has(addresses::app_root_key()),
         "wiring bump to total must install the app graph"
     );
     (bump, total)

@@ -26,13 +26,13 @@ fn drag(store: &facade::Store) {
     let target = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::NODE_A_KEY)
+        .find(|p| p.at.as_bytes() == addresses::node_a_key())
         .or_else(|| placement.placed.iter().find(|p| p.accepts))
         .expect("a genesis space");
     let mid_x = (target.rect.min.x + target.rect.max.x) * 0.5;
     let mid_y = (target.rect.min.y + target.rect.max.y) * 0.5;
     store.amend(
-        addresses::DRAG_FROM_KEY,
+        addresses::drag_from_key(),
         &point(mid_x - 10.0, mid_y),
     );
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(mid_x, mid_y));
@@ -90,7 +90,7 @@ fn tier0_registers_by_passing_the_editors_plan() {
             }
             if let Some(value) = ValuesPort::read(&values, &at) {
                 seed.push((at, value));
-            } else if let Some(bytes) = store.stored_at(addresses::NODE_A_KEY) {
+            } else if let Some(bytes) = store.stored_at(addresses::node_a_key()) {
                 seed.push((at, Value::new(Tag::new("value"), bytes)));
             }
         }

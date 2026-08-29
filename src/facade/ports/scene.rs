@@ -101,11 +101,11 @@ impl Port for Scene {
     }
 
     fn camera(&self, _of: &Addr, at: Revision) -> Option<Camera> {
-        // Well-known key matches `editor::addresses::CAMERA_KEY` (D34); the literal
+        // Well-known key matches `editor::addresses::camera_key()` (D34); the literal
         // bytes appear here rather than a cross-layer import, matching the
         // `SCREEN_ROOT_KEY` precedent in `facade::present::record_findings` (R2).
-        let start: &[u8] = &[0x51, 0x00, 0x00, 0x00];
-        let end: &[u8] = &[0x52, 0x00, 0x00, 0x00];
+        let start: &[u8] = &[0x50, 0x00, 0x01];
+        let end: &[u8] = &[0x50, 0x00, 0x02];
         let mut rows = match self.inner.records_in_range(start, end, at.get()) {
             Ok(rows) => rows,
             Err(_) => Vec::new(),

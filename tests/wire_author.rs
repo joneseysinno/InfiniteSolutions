@@ -4,7 +4,7 @@ use infinite_compositor::core::kind;
 use infinite_solutions::editor;
 use infinite_solutions::editor::addresses;
 use infinite_solutions::editor::mint;
-use infinite_solutions::facade::{self, decode_space, significant_bits};
+use infinite_solutions::facade::{self, decode_space};
 
 fn point(x: f64, y: f64) -> Vec<u8> {
     let mut p = Vec::with_capacity(16);
@@ -47,28 +47,31 @@ fn center(store: &facade::Store, key: &[u8]) -> (f64, f64) {
 }
 
 fn wire_drag(store: &facade::Store, from: &[u8], to: &[u8], mismatch: bool) -> Vec<u8> {
-    let minted = mint::next_child(store, &mint::parent_key(from)).expect("mint child");
     let (sx, sy) = center(store, from);
     let (tx, ty) = center(store, to);
 
-    store.amend(addresses::WIRE_MODE_KEY, &[1]);
+    store.amend(addresses::wire_mode_key(), &[1]);
     if mismatch {
-        store.amend(addresses::WIRE_MISMATCH_KEY, &[1]);
+        store.amend(addresses::wire_mismatch_key(), &[1]);
     }
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(sx, sy));
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
     editor::run(store);
 
     if mismatch {
-        store.amend(addresses::WIRE_MISMATCH_KEY, &[1]);
+        store.amend(addresses::wire_mismatch_key(), &[1]);
     }
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(tx, ty));
     editor::run(store);
 
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
-    store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+    store.amend(addresses::release_pulse_key(), &[1]);
     editor::run(store);
 
+    let minted = store
+        .pending_at(addresses::wire_addr_key())
+        .or_else(|| store.stored_at(addresses::wire_addr_key()))
+        .expect("wire addr latched");
     store.commit_at(&minted);
     store.commit_at(addresses::GRAPH_ROOT_KEY);
     drain(store);
@@ -80,24 +83,24 @@ fn dragging_between_two_nodes_commits_a_wire_under_their_parent() {
     let (_dir, store) = seeded();
     let minted = wire_drag(
         &store,
-        addresses::NODE_A_KEY,
-        addresses::NODE_B_KEY,
+        addresses::node_a_key(),
+        addresses::node_b_key(),
         false,
     );
 
     assert_eq!(
-        minted,
-        vec![0x11, 0x40, 0x00, 0x00],
-        "fourth canvas sibling after A, B, and genesis wire"
+        minted.len(),
+        addresses::canvas_key().len() + 2,
+        "minted wire is one slot under the canvas"
     );
     assert_eq!(
         mint::parent_key(&minted),
-        addresses::CANVAS_KEY.to_vec(),
+        addresses::canvas_key().to_vec(),
         "the wire lives on the canvas beside its endpoints"
     );
     assert_eq!(
-        significant_bits(&minted),
-        significant_bits(addresses::NODE_A_KEY),
+        facade::bits_of(&minted),
+        facade::bits_of(addresses::canvas_key()) + mint::SLOT_BITS,
         "the wire is a sibling of the endpoints on the canvas"
     );
 
@@ -106,8 +109,8 @@ fn dragging_between_two_nodes_commits_a_wire_under_their_parent() {
     assert_eq!(
         space.link,
         Some((
-            addresses::NODE_A_KEY.to_vec(),
-            addresses::NODE_B_KEY.to_vec()
+            addresses::node_a_key().to_vec(),
+            addresses::node_b_key().to_vec()
         ))
     );
 }
@@ -117,8 +120,8 @@ fn an_authored_wire_survives_restart() {
     let (dir, store) = seeded();
     let minted = wire_drag(
         &store,
-        addresses::NODE_A_KEY,
-        addresses::NODE_B_KEY,
+        addresses::node_a_key(),
+        addresses::node_b_key(),
         false,
     );
     assert!(store.has(&minted));
@@ -132,17 +135,17 @@ fn an_authored_wire_survives_restart() {
 #[test]
 fn a_mismatch_finding_appears_before_release_and_zooms_to_its_site() {
     let (_dir, store) = seeded();
-    let (sx, sy) = center(&store, addresses::NODE_A_KEY);
-    let (tx, ty) = center(&store, addresses::NODE_B_KEY);
+    let (sx, sy) = center(&store, addresses::node_a_key());
+    let (tx, ty) = center(&store, addresses::node_b_key());
 
-    store.amend(addresses::WIRE_MODE_KEY, &[1]);
-    store.amend(addresses::WIRE_MISMATCH_KEY, &[1]);
+    store.amend(addresses::wire_mode_key(), &[1]);
+    store.amend(addresses::wire_mismatch_key(), &[1]);
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(sx, sy));
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[1]);
     editor::run(&store);
 
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(tx, ty));
-    store.amend(addresses::WIRE_MISMATCH_KEY, &[1]);
+    store.amend(addresses::wire_mismatch_key(), &[1]);
     editor::run(&store);
 
     assert!(
@@ -161,13 +164,13 @@ fn a_mismatch_finding_appears_before_release_and_zooms_to_its_site() {
         "exactly one tag-mismatch before release: {:?}",
         findings
     );
-    assert_eq!(mismatch[0].site.as_bytes(), addresses::NODE_B_KEY);
+    assert_eq!(mismatch[0].site.as_bytes(), addresses::node_b_key());
 
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
-    store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+    store.amend(addresses::release_pulse_key(), &[1]);
     editor::run(&store);
 
-    let minted = mint::next_child(&store, addresses::CANVAS_KEY).expect("minted wire");
+    let minted = store.mint_under(addresses::canvas_key()).expect("minted wire");
     store.commit_at(&minted);
     store.commit_at(addresses::GRAPH_ROOT_KEY);
     drain(&store);

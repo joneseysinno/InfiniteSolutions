@@ -4,6 +4,7 @@
 //! fixed so a re-seed is bit-identical (E4).
 
 /// One authored space, before the presenter sees it.
+#[derive(Clone)]
 pub struct SpaceRecord {
     /// Extent across: min, ideal, weight.
     pub across: [f64; 3],

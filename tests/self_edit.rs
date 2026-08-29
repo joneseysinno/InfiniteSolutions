@@ -21,18 +21,14 @@ fn stored_origin(store: &facade::Store, key: &[u8]) -> [f64; 2] {
         .origin
 }
 
-fn screen_origins(store: &facade::Store) -> Vec<([u8; 4], [f64; 2])> {
+fn screen_origins(store: &facade::Store) -> Vec<(Vec<u8>, [f64; 2])> {
     let keys = [
-        addresses::CANVAS_KEY,
-        addresses::NODE_A_KEY,
-        addresses::NODE_B_KEY,
+        addresses::canvas_key(),
+        addresses::node_a_key(),
+        addresses::node_b_key(),
     ];
     keys.iter()
-        .map(|k| {
-            let mut id = [0u8; 4];
-            id.copy_from_slice(k);
-            (id, stored_origin(store, k))
-        })
+        .map(|k| (k.to_vec(), stored_origin(store, k)))
         .collect()
 }
 
@@ -41,13 +37,13 @@ fn drag(store: &facade::Store, delta: (f64, f64)) {
     let target = placement
         .placed
         .iter()
-        .find(|p| p.at.as_bytes() == addresses::NODE_A_KEY)
+        .find(|p| p.at.as_bytes() == addresses::node_a_key())
         .or_else(|| placement.placed.iter().find(|p| p.accepts))
         .expect("a genesis space");
     let mid_x = (target.rect.min.x + target.rect.max.x) * 0.5;
     let mid_y = (target.rect.min.y + target.rect.max.y) * 0.5;
     store.amend(
-        addresses::DRAG_FROM_KEY,
+        addresses::drag_from_key(),
         &point(mid_x - delta.0, mid_y - delta.1),
     );
     store.amend(addresses::POINTER_POSITION.as_bytes(), &point(mid_x, mid_y));
@@ -59,9 +55,9 @@ fn persist(store: &facade::Store) {
     store.amend(addresses::POINTER_BUTTON.as_bytes(), &[0]);
     editor::run(store);
     for key in [
-        addresses::CANVAS_KEY,
-        addresses::NODE_A_KEY,
-        addresses::NODE_B_KEY,
+        addresses::canvas_key(),
+        addresses::node_a_key(),
+        addresses::node_b_key(),
     ] {
         store.commit_at(key);
     }

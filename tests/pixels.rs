@@ -119,7 +119,7 @@ fn editing_one_style_row_changes_the_picture() {
     near(before, PLAIN, "the node starts at its authored fill");
 
     store.put(
-        editor::addresses::STYLE_PLAIN_KEY,
+        editor::addresses::style_plain_key(),
         &encode_style("plain", [0.90, 0.20, 0.10, 1.0]),
     );
     store.draw_with(&mut surface);
@@ -144,7 +144,7 @@ fn an_empty_screen_is_a_finding_and_not_a_black_frame() {
     };
     store.delete_range(
         editor::addresses::SCREEN_ROOT_KEY,
-        editor::addresses::SCREEN_END_KEY,
+        editor::addresses::screen_end_key(),
     );
     store.draw_with(&mut surface);
     let pixels = surface.read_back().expect("read back");
