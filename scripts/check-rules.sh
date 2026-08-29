@@ -319,6 +319,18 @@ check E9  "tier 0 passes the equivalence harness; discard is generic" \
 check E12 "undo/redo are new commits; discard is the other verb" \
   cargo test --offline --test undo
 
+# E13.0 · a third primitive draws text measured through the Glyphs port.
+check E13.0 "text reaches the screen at two scale factors" \
+  cargo test --offline --test text
+
+# E13.1 · selection is an authored record at SELECT_KEY, not a flag on Placed.
+check E13.1 "selection survives restart; Placed has no selected field" \
+  cargo test --offline --test selection
+
+# E13.2 · the inspector reads selection through the scene port only.
+check E13.2 "inspector fields match scene; inspector names no store type" \
+  cargo test --offline --test inspector
+
 echo
 if [ "$fail" -eq 0 ]; then echo "all checks passed"; else echo "findings above"; fi
 exit "$fail"

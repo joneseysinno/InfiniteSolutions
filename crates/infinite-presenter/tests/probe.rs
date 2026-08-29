@@ -18,6 +18,7 @@ fn thing(bytes: Vec<u8>, hosts: bool, accepts: bool, override_steps: Option<i64>
         link: None,
         hosts_space: hosts,
         accepts,
+        text: "".into(),
     }
 }
 
@@ -66,6 +67,7 @@ fn a_point_answers_without_a_port() {
         link: None,
         hosts_space: false,
         accepts: true,
+        text: "".into(),
     });
     clipped.insert(Placeable {
         at: Addr::new(vec![0x10, 0x02]),
@@ -78,6 +80,7 @@ fn a_point_answers_without_a_port() {
         link: None,
         hosts_space: false,
         accepts: true,
+        text: "".into(),
     });
     let placed = place(&clipped, &v);
     let parent = centred(&placed, &Addr::new(vec![0x10]));
@@ -117,6 +120,7 @@ fn a_point_answers_without_a_port() {
         link: None,
         hosts_space: false,
         accepts: true,
+        text: "".into(),
     });
     gutter.insert(Placeable {
         at: Addr::new(vec![0x30, 0x02]),
@@ -129,6 +133,7 @@ fn a_point_answers_without_a_port() {
         link: None,
         hosts_space: false,
         accepts: true,
+        text: "".into(),
     });
     let placed = place(&gutter, &v);
     let parent_rect = placed

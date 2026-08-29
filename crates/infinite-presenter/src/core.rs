@@ -41,7 +41,7 @@ pub use detail::detail;
 pub use extent::Extent;
 pub use level::level;
 pub use place::place;
-pub use placeable::{Placeable, AREA};
+pub use placeable::{Placeable, AREA, TEXT};
 pub use placed::Placed;
 pub use placement::{Batch, Placement};
 pub use point::Point;

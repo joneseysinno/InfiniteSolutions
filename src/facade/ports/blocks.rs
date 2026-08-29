@@ -13,8 +13,8 @@ use infinite_compositor::core::{
 use infinite_presenter::core::{probe, Point};
 
 use crate::editor::blocks::{
-    amend as amend_fn, commit as commit_fn, displace as displace_fn, gate as gate_fn,
-    offset as offset_fn, probe_at as probe_at_fn, read as read_fn,
+    amend as amend_fn, commit as commit_fn, displace as displace_fn,
+    encode_selection as encode_selection_fn, gate as gate_fn, offset as offset_fn, probe_at as probe_at_fn, read as read_fn,
 };
 use crate::facade::addr::{compositor_addr, runtime_addr};
 use crate::facade::open::Inner;
@@ -44,6 +44,7 @@ impl Blocks {
                 }),
                 "offset" => Arc::new(Offset),
                 "gate" => Arc::new(Gate),
+                "encode-selection" => Arc::new(EncodeSelection),
                 "displace" => Arc::new(Displace),
                 _ => Arc::new(Idle),
             };
@@ -146,6 +147,13 @@ fn native_signatures() -> Vec<(&'static str, Signature)> {
                 ("val", true, "value", false),
                 ("on", true, "flag", false),
                 ("pass", false, "value", false),
+            ]),
+        ),
+        (
+            "encode-selection",
+            sig(&[
+                ("hit", true, "address", true),
+                ("out", false, "value", false),
             ]),
         ),
         (
@@ -303,6 +311,15 @@ impl Primitive for Gate {
             Some(pass) => vec![Value::new(Tag::new("value"), pass)],
             None => vec![Value::new(Tag::new("value"), Vec::new())],
         }
+    }
+}
+
+struct EncodeSelection;
+
+impl Primitive for EncodeSelection {
+    fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
+        let hit = inputs.first().map(Value::payload).unwrap_or(&[]);
+        vec![Value::new(Tag::new("value"), encode_selection_fn(hit))]
     }
 }
 

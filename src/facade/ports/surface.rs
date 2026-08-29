@@ -18,7 +18,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use infinite_presenter::binding::ports::Surface as Port;
-use infinite_presenter::core::{Addr, Placement, Point, SurfaceRect};
+use infinite_presenter::core::{Addr, Placement, Point, SurfaceRect, TEXT};
+
+use crate::facade::ports::Glyphs;
 
 /// Bytes per area instance: four f32 of rectangle, four f32 of fill.
 const INSTANCE_STRIDE: u64 = 32;
@@ -160,6 +162,8 @@ pub struct Surface {
     target_px: (u32, u32),
     clear: [f64; 4],
     fills: BTreeMap<Addr, [f64; 4]>,
+    /// Address → run, for the text primitive batch (E13.0).
+    text_runs: BTreeMap<Addr, Box<str>>,
     /// Owned only by [`Self::offscreen`], so [`Self::read_back`] has something to copy.
     offscreen: Option<wgpu::Texture>,
     /// Last frame, after narrowing. Kept so a test can see the f32 path ran.
@@ -188,6 +192,7 @@ impl Surface {
             target_px: (0, 0),
             clear: [0.0, 0.0, 0.0, 1.0],
             fills: BTreeMap::new(),
+            text_runs: BTreeMap::new(),
             offscreen: None,
             narrowed: 0,
         }
@@ -211,6 +216,7 @@ impl Surface {
             target_px: (0, 0),
             clear: [0.0, 0.0, 0.0, 1.0],
             fills: BTreeMap::new(),
+            text_runs: BTreeMap::new(),
             offscreen: None,
             narrowed: 0,
         }
@@ -286,6 +292,11 @@ impl Surface {
     /// style name: L5 and `check-rules.sh`'s `maps_keyed_by_addr` both require it.
     pub fn set_fills(&mut self, fills: BTreeMap<Addr, [f64; 4]>) {
         self.fills = fills;
+    }
+
+    /// Address → run for text batches. Resolved by the facade from the scene set.
+    pub fn set_text_runs(&mut self, runs: BTreeMap<Addr, Box<str>>) {
+        self.text_runs = runs;
     }
 
     /// How many vertices were narrowed this submit. For the agreement test.
@@ -381,6 +392,7 @@ impl Port for Surface {
         let mut link_count = 0u32;
         for batch in &placement.batches {
             let is_link = &*batch.primitive == LINK;
+            let is_text = &*batch.primitive == TEXT;
             let first = if is_link { link_count } else { count };
             let mut emitted = 0u32;
             for item in placement
@@ -394,8 +406,8 @@ impl Port for Surface {
                     continue;
                 }
                 let fill = self.fills.get(&item.at).copied().unwrap_or(UNKNOWN_FILL);
-                match (is_link, item.span) {
-                    (true, Some((a, b))) => {
+                match (is_link, is_text, item.span) {
+                    (true, _, Some((a, b))) => {
                         // The stroke's half-width, recovered from the unclipped
                         // bounding box `place_link` inflated by exactly that amount.
                         // Not from `showing`: a clipped wire has a narrower box and
@@ -421,6 +433,28 @@ impl Port for Surface {
                         }
                         link_count += 1;
                     }
+                    (_, true, _) => {
+                        let Some(run) = self.text_runs.get(&item.at) else {
+                            continue;
+                        };
+                        let em = (showing.max.y - showing.min.y).max(1e-12);
+                        for cell in Glyphs::ink_cells(run, showing.min, em) {
+                            let quad: [f32; 8] = [
+                                cell.min.x as f32,
+                                cell.min.y as f32,
+                                (cell.max.x - cell.min.x) as f32,
+                                (cell.max.y - cell.min.y) as f32,
+                                fill[0] as f32,
+                                fill[1] as f32,
+                                fill[2] as f32,
+                                fill[3] as f32,
+                            ];
+                            for n in quad {
+                                instances.extend_from_slice(&n.to_le_bytes());
+                            }
+                            count += 1;
+                        }
+                    }
                     _ => {
                         let quad: [f32; 8] = [
                             showing.min.x as f32,
@@ -440,14 +474,25 @@ impl Port for Surface {
                 }
                 emitted += 1;
             }
-            if emitted > 0 {
-                // A link batch whose entries carried no span narrowed into the area
-                // buffer, so the run follows where the instances actually went.
-                let link = is_link && link_count > first;
+            if is_link {
+                if link_count > first {
+                    runs.push(Run {
+                        link: true,
+                        first,
+                        count: link_count - first,
+                    });
+                } else if emitted > 0 {
+                    runs.push(Run {
+                        link: false,
+                        first: count.saturating_sub(emitted),
+                        count: emitted,
+                    });
+                }
+            } else if count > first {
                 runs.push(Run {
-                    link,
-                    first: if link { first } else { count - emitted },
-                    count: emitted,
+                    link: false,
+                    first,
+                    count: count - first,
                 });
             }
         }

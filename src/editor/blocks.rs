@@ -9,6 +9,7 @@
 mod amend;
 mod commit;
 mod displace;
+mod encode_selection;
 mod gate;
 mod offset;
 mod probe_at;
@@ -17,6 +18,7 @@ mod read;
 pub use amend::amend;
 pub use commit::commit;
 pub use displace::displace;
+pub use encode_selection::encode_selection;
 pub use gate::gate;
 pub use offset::offset;
 pub use probe_at::probe_at;

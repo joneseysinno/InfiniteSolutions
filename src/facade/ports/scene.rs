@@ -6,12 +6,14 @@
 use std::sync::Arc;
 
 use infinite_presenter::binding::ports::Scene as Port;
+use infinite_presenter::binding::ports::Glyphs as GlyphsPort;
 use infinite_presenter::core::{
-    Addr, Camera, Extent, Placeable, Revision, SceneSet,
+    Addr, Camera, Extent, Placeable, Revision, SceneSet, TEXT,
 };
 
 use crate::facade::addr::presenter_addr;
 use crate::facade::open::Inner;
+use crate::facade::ports::Glyphs;
 
 /// Placeable records over the real store.
 pub struct Scene {
@@ -53,6 +55,7 @@ impl Port for Scene {
                     origin: [0.0, 0.0],
                     primitive: String::new(),
                     link: None,
+                    text: String::new(),
                 }
             } else {
                 continue;
@@ -64,10 +67,24 @@ impl Port for Scene {
             } else {
                 record.primitive.into_boxed_str()
             };
+            let glyphs = Glyphs::new();
+            let em = record.down[1].max(record.down[0]).max(1e-12);
+            let (across, down) = if &*primitive == TEXT {
+                let ink = GlyphsPort::measure(&glyphs, &record.text, em);
+                (
+                    Extent::fixed((ink.max.x - ink.min.x).max(1e-12)),
+                    Extent::fixed(em),
+                )
+            } else {
+                (
+                    Extent::new(record.across[0], record.across[1], record.across[2]),
+                    Extent::new(record.down[0], record.down[1], record.down[2]),
+                )
+            };
             set.insert(Placeable {
                 at: presenter_addr(&bytes),
-                across: Extent::new(record.across[0], record.across[1], record.across[2]),
-                down: Extent::new(record.down[0], record.down[1], record.down[2]),
+                across,
+                down,
                 style: record.style.into_boxed_str(),
                 detail_override: record.detail_override,
                 primitive,
@@ -77,6 +94,7 @@ impl Port for Scene {
                 hosts_space: record.hosts_space,
                 accepts: record.accepts,
                 position: infinite_presenter::core::Point::new(record.origin[0], record.origin[1]),
+                text: record.text.into_boxed_str(),
             });
         }
         set

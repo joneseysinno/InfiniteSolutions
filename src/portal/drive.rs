@@ -8,5 +8,7 @@ use crate::facade::Store;
 /// Drives one tick from the event loop. Returns whether work remains.
 pub fn drive(store: &Store) -> bool {
     editor::run(store);
-    store.tick().work_remains
+    let work = store.tick().work_remains;
+    editor::refresh_inspector(store);
+    work
 }

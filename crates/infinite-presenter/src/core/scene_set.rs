@@ -95,6 +95,7 @@ mod tests {
             link: None,
             hosts_space: false,
             accepts: true,
+            text: "".into(),
         }
     }
 

@@ -56,6 +56,27 @@ pub const SCREEN_ROOT_KEY: &[u8] = &[0x10, 0x00, 0x00, 0x00];
 /// Exclusive end of the screen range.
 pub const SCREEN_END_KEY: &[u8] = &[0x20, 0x00, 0x00, 0x00];
 
+/// Property inspector panel (E13.2). A space; field rows are text primitives under it.
+pub const INSPECTOR_KEY: &[u8] = &[0x12, 0x00, 0x00, 0x00];
+
+/// Inspector field: selected address.
+pub const INSPECTOR_ADDR_KEY: &[u8] = &[0x12, 0x10, 0x00, 0x00];
+
+/// Inspector field: style key.
+pub const INSPECTOR_STYLE_KEY: &[u8] = &[0x12, 0x20, 0x00, 0x00];
+
+/// Inspector field: across extent.
+pub const INSPECTOR_ACROSS_KEY: &[u8] = &[0x12, 0x30, 0x00, 0x00];
+
+/// Inspector field: down extent.
+pub const INSPECTOR_DOWN_KEY: &[u8] = &[0x12, 0x40, 0x00, 0x00];
+
+/// Inspector field: authored origin.
+pub const INSPECTOR_ORIGIN_KEY: &[u8] = &[0x12, 0x50, 0x00, 0x00];
+
+/// Inspector field: depth from the address (D45).
+pub const INSPECTOR_DEPTH_KEY: &[u8] = &[0x12, 0x60, 0x00, 0x00];
+
 /// The canvas space. The one root of the screen (D45).
 pub const CANVAS_KEY: &[u8] = &[0x11, 0x00, 0x00, 0x00];
 
@@ -120,10 +141,31 @@ pub const BEHAVIOUR_END_KEY: &[u8] = &[0x40, 0x00, 0x00, 0x00];
 /// Press-origin for a drag in progress. Latched while the button is down.
 pub const DRAG_FROM_KEY: &[u8] = &[0x41, 0x00, 0x00, 0x00];
 
+/// One-shot pulse on pointer release. Cleared after each behaviour tick.
+pub const RELEASE_PULSE_KEY: &[u8] = &[0x42, 0x00, 0x00, 0x00];
+
 /// The session camera (E10.5, D5). Amended directly by the portal's pan/zoom —
 /// session-scoped fact, not authored geometry, so it is never read by the
 /// interpreted behaviour composition the way [`DRAG_FROM_KEY`] is.
 pub const CAMERA_KEY: &[u8] = &[0x51, 0x00, 0x00, 0x00];
+
+/// Authored selection (E13.1). Points at the selected space's key.
+pub const SELECT_KEY: &[u8] = &[0x52, 0x00, 0x00, 0x00];
+
+/// Exclusive end of the session range (camera + selection).
+pub const SESSION_END_KEY: &[u8] = &[0x53, 0x00, 0x00, 0x00];
+
+/// `gate` instance for selection — passes on [`RELEASE_PULSE_KEY`].
+pub const BEHAVIOUR_SELECT_GATE_KEY: &[u8] = &[0x38, 0x00, 0x00, 0x00];
+
+/// `encode-selection` instance.
+pub const BEHAVIOUR_ENCODE_SELECTION_KEY: &[u8] = &[0x39, 0x00, 0x00, 0x00];
+
+/// Second `amend` instance — writes [`SELECT_KEY`], not the probed node.
+pub const BEHAVIOUR_SELECT_AMEND_KEY: &[u8] = &[0x3A, 0x00, 0x00, 0x00];
+
+/// Second `commit` instance — commits [`SELECT_KEY`].
+pub const BEHAVIOUR_SELECT_COMMIT_KEY: &[u8] = &[0x3B, 0x00, 0x00, 0x00];
 
 /// Authored graph being wired. A pending record here is C4's in-flight wire.
 pub const GRAPH_ROOT_KEY: &[u8] = &[0x60, 0x00, 0x00, 0x00];

@@ -55,6 +55,7 @@ pub fn register(registry: &mut ArtifactRegistry, view: View) {
                 link: None,
                 hosts_space: false,
                 accepts: true,
+                text: "".into(),
             });
         }
         encode_placement(&rebuild(&scene, &view))

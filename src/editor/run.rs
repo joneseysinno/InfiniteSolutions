@@ -30,6 +30,8 @@ pub fn run(store: &Store) {
                 store.amend(addresses::DRAG_FROM_KEY, p);
             }
         }
+    } else {
+        store.discard_at(addresses::DRAG_FROM_KEY);
     }
     if let Some(p) = &pos {
         store.write_slot(addresses::BEHAVIOUR_PROBE_KEY, "at", p, "point");
@@ -39,5 +41,21 @@ pub fn run(store: &Store) {
         store.write_slot(addresses::BEHAVIOUR_OFFSET_KEY, "from", &from, "point");
     }
     store.write_slot(addresses::BEHAVIOUR_GATE_KEY, "on", &button, "flag");
+    if let Some(pulse) = store.pending_at(addresses::RELEASE_PULSE_KEY) {
+        store.write_slot(addresses::BEHAVIOUR_SELECT_GATE_KEY, "on", &pulse, "flag");
+    }
+    store.write_slot(
+        addresses::BEHAVIOUR_SELECT_AMEND_KEY,
+        "addr",
+        addresses::SELECT_KEY,
+        "address",
+    );
+    store.write_slot(
+        addresses::BEHAVIOUR_SELECT_COMMIT_KEY,
+        "addr",
+        addresses::SELECT_KEY,
+        "address",
+    );
     store.run_linked();
+    store.discard_at(addresses::RELEASE_PULSE_KEY);
 }

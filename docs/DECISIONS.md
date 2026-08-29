@@ -1575,3 +1575,62 @@ record is the decision and not the implementation**: E12's stage plan is owed, a
 under R20 no status line for it is written until the change that lands it says so.
 
 ---
+
+## D49 — A text run lives on the space record · **locked** · 2026-08-28 · opens O26
+
+**The string is a field beside `style` and `primitive`, not a record the space points
+at.** O26's option (a), taken until a run is long enough that re-reading it per frame
+is measurable.
+
+**What forced it.** E13.0 needs somewhere to store the run before E13.3 writes one
+through the composition. A separate addressed record would work but adds indirection
+and a dangling edge for every label; a panel is already a space, and a label is already
+a primitive on that space (§2.1).
+
+**Cost, stated.** Every space record carries an empty string for almost all rows. The
+layout grows at the end of `encode_space`, so genesis written before E13.0 still
+decodes with `text` defaulting to empty.
+
+**Verified by.** `tests/text.rs`.
+
+---
+
+## D50 — Selection is one authored address · **locked** · 2026-08-28 · opens O27
+
+**The selection record holds a single store key, not a set.** O27's marquee question
+is deferred: one address is enough for an inspector, and retrofitting a set is cheap
+only if the record is a set from the start — which R27 says not to build until
+something selects two things.
+
+**What forced it.** E13.1 needed a committed fact that survives restart and is written
+through the behaviour composition on pointer release, without putting `selected: bool`
+on `Placed` — the `hyper-ui` breakage this stage exists to not become.
+
+**Where it lives.** [`SELECT_KEY`](src/editor/addresses.rs) in region 5 beside the
+session camera, encoded as `SL1` + four key bytes in [`facade/record.rs`](src/facade/record.rs).
+The write path is `off-gate` → `encode-selection` → a second `amend`/`commit` pair in
+the behaviour composition; the portal only emits a one-shot [`RELEASE_PULSE_KEY`](src/editor/addresses.rs)
+on button-up.
+
+**Verified by.** `tests/selection.rs`.
+
+---
+
+## D51 — The inspector reads through the scene port · **locked** · 2026-08-28
+
+**Property fields come from `Scene`, not from decoding store records in the panel
+code.** `Store::selection_view` resolves the selected address against the same
+`SceneSet` the canvas places from, and depth is `prefix_bits / 4` on the presenter
+address (D45) — not a separate authored field that could drift.
+
+**What forced it.** E13.2 is the first UI that displays authored geometry beside
+the canvas. Reading `SpaceRecord` bytes directly in `editor/inspector.rs` would be
+a second decode path and the beginning of the inspector naming store shapes (R2).
+
+**Where it lives.** [`INSPECTOR_KEY`](src/editor/addresses.rs) and six text-primitive
+children; [`editor/inspector.rs`](src/editor/inspector.rs) refreshes their runs from
+[`SelectionView`](src/facade/present.rs) after each behaviour tick.
+
+**Verified by.** `tests/inspector.rs`.
+
+---

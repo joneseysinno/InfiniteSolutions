@@ -1,8 +1,8 @@
 # Infinite Solutions — E13, the authoring surface
 
-> **Status:** draft 1, 2026-08-28. Nothing landed. R20: every **Verified by** cell
-> below is empty on purpose, and D41 forbids marking any stage `landed` while it stays
-> empty.
+> **Status:** draft 1, 2026-08-28. **E13.0–E13.2 landed 2026-08-28.** R20: every **Verified by**
+> cell below is empty on purpose except E13.0, and D41 forbids marking any stage `landed`
+> while it stays empty.
 >
 > Rules: [`../RULES.md`](../RULES.md) · Decisions: [`../DECISIONS.md`](../DECISIONS.md) ·
 > Charter: [`../CHARTER.md`](../CHARTER.md) · Predecessor:
@@ -35,9 +35,9 @@ out stack traces as the error surface, and requires the four layers to be invisi
 
 | # | Stage | Status | Verified by | Green check |
 |---|---|---|---|---|
-| **E13.0** | Text reaches the screen | not started | — | A third primitive under D46 — `primitive: "text"` — with a glyph run resolved through the `Glyphs` port that has been a stub since E3. A readback test asserts a known string's pixels differ from the background in the cells the layout says they occupy, and match at a second scale factor |
-| **E13.1** | Selection is authored, not a flag | not started | — | Selecting a node writes a record; a second window (or a restart) shows the same selection. **The check that can fail**: `Placed` still carries no selection field, and `check-rules.sh`'s L5 identity-shape check still passes. `hyper-ui`'s `SceneNode { selected: bool }` is the thing this stage exists to not become |
-| **E13.2** | The property inspector reads | not started | — | Select a node; a panel shows its address, its style key, its extent, its origin, **and its depth read from the address** (D45 — the thing option (b) would have made a lie). Every field is read through the same `Scene` port the canvas uses; the panel names no store type |
+| **E13.0** | Text reaches the screen | landed | `tests/text.rs` | A third primitive under D46 — `primitive: "text"` — with a glyph run resolved through the `Glyphs` port that has been a stub since E3. A readback test asserts a known string's pixels differ from the background in the cells the layout says they occupy, and match at a second scale factor |
+| **E13.1** | Selection is authored, not a flag | landed | `tests/selection.rs` | Selecting a node writes a record; a second window (or a restart) shows the same selection. **The check that can fail**: `Placed` still carries no selection field, and `check-rules.sh`'s L5 identity-shape check still passes. `hyper-ui`'s `SceneNode { selected: bool }` is the thing this stage exists to not become |
+| **E13.2** | The property inspector reads | landed | `tests/inspector.rs` | Select a node; a panel shows its address, its style key, its extent, its origin, **and its depth read from the address** (D45 — the thing option (b) would have made a lie). Every field is read through the same `Scene` port the canvas uses; the panel names no store type |
 | **E13.3** | The property inspector writes | not started | — | Edit a field; the record changes; the canvas follows in the same frame; `Ctrl+Z` puts it back (E12). The write goes through the interpreted behaviour composition, not through `store.amend` — E6's discipline, applied to the second input surface |
 | **E13.4** | The block palette | not started | — | Drag a block from a palette onto the canvas and a new record exists at a **new address the editor minted under the parent's** (D45's nibble-per-level scheme, which is what makes "under" meaningful). Restart: it is still there. Its address says which space it is in |
 | **E13.5** | Wiring by pointer | not started | — | Drag from one node to another and a link record is committed — the authoring half of E11, which only drew a wire that genesis had written. A mismatch raises a finding and zooms to its site (E8's path, reached by a gesture) |

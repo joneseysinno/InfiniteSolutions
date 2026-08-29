@@ -21,6 +21,9 @@ impl Input {
     /// Pointer button flags. Amended on transition only.
     pub fn on_pointer_button(&mut self, store: &Store, flags: u8) {
         store.amend(addresses::POINTER_BUTTON.as_bytes(), &[flags]);
+        if flags == 0 {
+            store.amend(addresses::RELEASE_PULSE_KEY, &[1]);
+        }
     }
 
     /// Key event. Amended on transition only.

@@ -20,6 +20,28 @@ fn default_camera() -> Camera {
 /// precedent in `record_findings` below (R2).
 const CAMERA_START: &[u8] = &[0x51, 0x00, 0x00, 0x00];
 const CAMERA_END: &[u8] = &[0x52, 0x00, 0x00, 0x00];
+const SELECT_START: &[u8] = &[0x52, 0x00, 0x00, 0x00];
+const SESSION_END: &[u8] = &[0x53, 0x00, 0x00, 0x00];
+const SCREEN_START: &[u8] = &[0x10, 0x00, 0x00, 0x00];
+const SCREEN_END: &[u8] = &[0x20, 0x00, 0x00, 0x00];
+
+/// What the property inspector shows about the current selection (E13.2).
+///
+/// Built from the `Scene` port only — the same source the canvas uses.
+pub struct SelectionView {
+    /// The store key, as lowercase hex with no separators.
+    pub address: String,
+    /// Opaque style key on the placeable.
+    pub style: String,
+    /// Across extent: min, ideal, weight.
+    pub across: [f64; 3],
+    /// Down extent: min, ideal, weight.
+    pub down: [f64; 3],
+    /// Authored origin in the containing space.
+    pub origin: [f64; 2],
+    /// Depth in levels, from the address prefix (D45).
+    pub depth: u32,
+}
 
 impl Store {
     /// Sets the drawable rectangle. Origin may be non-zero (P1).
@@ -58,6 +80,52 @@ impl Store {
             .and_then(|(_, payload)| super::record::decode_camera(&payload))
             .map(|(x, y, zoom)| Camera::new(Point::new(x, y), zoom))
             .unwrap_or_else(default_camera)
+    }
+
+    /// The authored selection. Resolved stored ∪ pending (E13.1).
+    pub fn selection(&self) -> Option<Vec<u8>> {
+        let at = self.inner.db.stable_revision().legacy_sequence();
+        let mut rows = self
+            .inner
+            .records_in_range(SELECT_START, SESSION_END, at)
+            .unwrap_or_default();
+        for (bytes, payload) in self.inner.overlay_pending(SELECT_START, SESSION_END) {
+            if let Some(existing) = rows.iter_mut().find(|(b, _)| b == &bytes) {
+                existing.1 = payload;
+            } else {
+                rows.push((bytes, payload));
+            }
+        }
+        rows.into_iter()
+            .find(|(bytes, _)| bytes.as_slice() == SELECT_START)
+            .and_then(|(_, payload)| super::record::decode_selection(&payload))
+            .flatten()
+    }
+
+    /// The selected placeable as the scene port sees it (E13.2).
+    pub fn selection_view(&self) -> Option<SelectionView> {
+        let key = self.selection()?;
+        let scene = self.scene();
+        let at = Revision::new(self.inner.db.stable_revision().legacy_sequence());
+        let set = ScenePort::placed_in(
+            &scene,
+            &crate::facade::presenter_addr(SCREEN_START),
+            &crate::facade::presenter_addr(SCREEN_END),
+            at,
+        );
+        let addr = crate::facade::presenter_addr(&key);
+        let item = set.get(&addr)?;
+        Some(SelectionView {
+            address: key
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect(),
+            style: item.style.to_string(),
+            across: [item.across.min, item.across.ideal, item.across.weight],
+            down: [item.down.min, item.down.ideal, item.down.weight],
+            origin: [item.position.x, item.position.y],
+            depth: addr.prefix_bits() / 4,
+        })
     }
 
     /// Moves the session camera by a logical surface delta.
@@ -168,8 +236,12 @@ impl Store {
 
         let styles = self.styles();
         let mut fills = BTreeMap::new();
+        let mut text_runs = BTreeMap::new();
         for item in set.iter() {
             fills.insert(item.at.clone(), fill_of(&styles, &item.style));
+            if &*item.primitive == infinite_presenter::core::TEXT {
+                text_runs.insert(item.at.clone(), item.text.clone());
+            }
         }
         if let Some(background) = self.inner.background.lock().expect("background lock").clone() {
             let key = crate::facade::presenter_addr(&background);
@@ -178,6 +250,7 @@ impl Store {
             }
         }
         surface.set_fills(fills);
+        surface.set_text_runs(text_runs);
 
         SurfacePort::submit(surface, &placement);
         self.record_findings(&placement);

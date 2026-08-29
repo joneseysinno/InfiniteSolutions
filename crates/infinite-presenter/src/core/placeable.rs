@@ -12,6 +12,9 @@ use crate::core::point::Point;
 /// the corpus already.
 pub const AREA: &str = "rect";
 
+/// The primitive key for a text run (E13.0, D46).
+pub const TEXT: &str = "text";
+
 /// One thing the presenter could place.
 ///
 /// Everything here arrives from the store through the `Scene` port and is **read**.
@@ -62,4 +65,6 @@ pub struct Placeable {
     /// `viewport_at` takes the store as an argument in order to ask what kind of thing
     /// it just found, which is P3.
     pub accepts: bool,
+    /// The run to draw when `primitive` is [`TEXT`]. Empty for every other shape.
+    pub text: Box<str>,
 }

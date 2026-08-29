@@ -15,7 +15,7 @@ pub struct SpaceRecord {
     pub detail_override: Option<i64>,
     /// Whether this space has an interior.
     pub hosts_space: bool,
-/// Whether a probe may land here.
+    /// Whether a probe may land here.
     pub accepts: bool,
     /// Authored origin, across then down. Drag writes this (EDITOR.md §1).
     pub origin: [f64; 2],
@@ -23,12 +23,15 @@ pub struct SpaceRecord {
     pub primitive: String,
     /// The two addresses this connects, when it is a link rather than an area (D46).
     pub link: Option<(Vec<u8>, Vec<u8>)>,
+    /// The run to draw when `primitive` is `text` (E13.0, O26 option a).
+    pub text: String,
 }
 
 const SPACE_MAGIC: &[u8] = b"IS1";
 const STYLE_MAGIC: &[u8] = b"ST1";
 const COMP_MAGIC: &[u8] = b"CM1";
 const CAMERA_MAGIC: &[u8] = b"CA1";
+const SELECTION_MAGIC: &[u8] = b"SL1";
 const NONE: i64 = i64::MIN;
 
 /// One port, as genesis writes it. Direction is a flag so the editor never
@@ -105,6 +108,7 @@ pub fn encode_space(record: &SpaceRecord) -> Vec<u8> {
             put_bytes(&mut out, to);
         }
     }
+    put_str(&mut out, &record.text);
     out
 }
 
@@ -139,19 +143,25 @@ pub fn decode_space(bytes: &[u8]) -> Option<SpaceRecord> {
     } else {
         [0.0, 0.0]
     };
-    let (primitive, link) = match take_str(bytes, i) {
-        Some((primitive, n)) => {
+    let (primitive, link, text) = match take_str(bytes, i) {
+        Some((primitive, mut n)) => {
             let link = match bytes.get(n) {
                 Some(1) => {
-                    let (from, n) = take_bytes(bytes, n + 1)?;
-                    let (to, _) = take_bytes(bytes, n)?;
+                    let (from, next) = take_bytes(bytes, n + 1)?;
+                    let (to, next) = take_bytes(bytes, next)?;
+                    n = next;
                     Some((from, to))
+                }
+                Some(0) => {
+                    n += 1;
+                    None
                 }
                 _ => None,
             };
-            (primitive, link)
+            let text = take_str(bytes, n).map(|(t, _)| t).unwrap_or_default();
+            (primitive, link, text)
         }
-        None => (String::new(), None),
+        None => (String::new(), None, String::new()),
     };
     Some(SpaceRecord {
         across,
@@ -163,6 +173,7 @@ pub fn decode_space(bytes: &[u8]) -> Option<SpaceRecord> {
         origin,
         primitive,
         link,
+        text,
     })
 }
 
@@ -219,6 +230,22 @@ pub fn decode_camera(bytes: &[u8]) -> Option<(f64, f64, f64)> {
     let y = f64::from_le_bytes(bytes[11..19].try_into().ok()?);
     let zoom = f64::from_le_bytes(bytes[19..27].try_into().ok()?);
     Some((x, y, zoom))
+}
+
+/// Encodes authored selection as the store key bytes of the selected space (E13.1).
+pub fn encode_selection(selected: &[u8]) -> Vec<u8> {
+    let mut out = Vec::from(SELECTION_MAGIC);
+    put_bytes(&mut out, selected);
+    out
+}
+
+/// Decodes a selection record. `None` if not `SL1`. Some(None) if empty (no selection).
+pub fn decode_selection(bytes: &[u8]) -> Option<Option<Vec<u8>>> {
+    if bytes.len() < 3 || !bytes.starts_with(SELECTION_MAGIC) {
+        return None;
+    }
+    let (key, _) = take_bytes(bytes, 3)?;
+    Some(if key.is_empty() { None } else { Some(key) })
 }
 
 /// Encodes one composition. Deterministic.

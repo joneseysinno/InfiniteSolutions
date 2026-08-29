@@ -79,6 +79,18 @@ path = "tests/wires.rs"
 name = "undo"
 path = "tests/undo.rs"
 
+[[test]]
+name = "text"
+path = "tests/text.rs"
+
+[[test]]
+name = "selection"
+path = "tests/selection.rs"
+
+[[test]]
+name = "inspector"
+path = "tests/inspector.rs"
+
 [workspace]
 resolver = "3"
 members = [

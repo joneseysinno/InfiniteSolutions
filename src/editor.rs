@@ -10,9 +10,11 @@ pub mod blocks;
 pub mod tags;
 
 mod genesis;
+mod inspector;
 mod run;
 mod styles;
 
 pub use genesis::seed;
+pub use inspector::refresh as refresh_inspector;
 pub use run::{bind, run};
 pub use styles::{bootstrap_default, Descriptor};

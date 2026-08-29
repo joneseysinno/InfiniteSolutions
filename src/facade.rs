@@ -25,9 +25,11 @@ pub use addr::{
 pub use artifacts::{register, register_plan};
 pub use finding::{from_empty_screen, from_precision_floor};
 pub use record::{
-    decode_composition, decode_space, decode_style, encode_composition, encode_space,
-    encode_style, BlockRecord, CompositionRecord, PortRecord, SpaceRecord, WireRecord,
+    decode_composition, decode_selection, decode_space, decode_style, encode_composition,
+    encode_selection, encode_space, encode_style, BlockRecord, CompositionRecord, PortRecord,
+    SpaceRecord, WireRecord,
 };
 pub use open::{open, open_with_options, Store};
+pub use present::SelectionView;
 pub use tick::TickReport;
 pub use undo::UNDO_KEY;
