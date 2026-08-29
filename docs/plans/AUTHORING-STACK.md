@@ -247,7 +247,8 @@ something if the set is fixed first.
 DNA authors everything from a very small set. **Take the structure; leave the naming.**
 R15 forbids metaphor names in the core and F-4 counts two codebases lost to it — bion
 and biomimicry each ended up maintaining a `VOCABULARY.md` whose only job was policing a
-metaphor's border. No `base`, no `codon`, no `gene`.
+metaphor's border. No `base`, no `codon`, no `gene`. The candidate alphabet for this
+project is [`../vocabulary.md`](../vocabulary.md).
 
 Two structural properties are worth more than the number four:
 
