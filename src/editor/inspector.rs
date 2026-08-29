@@ -42,7 +42,8 @@ pub fn refresh(store: &Store) {
         .iter()
         .zip([0.02, 0.08, 0.14, 0.20, 0.26, 0.32])
     {
-        store.put(*key, &encode_space(&text_field(origin_y, text)));
+        store.put(*key, &encode_space(&text_field(origin_y)));
+        store.put_payload(key, text.as_bytes());
     }
 }
 
@@ -56,7 +57,7 @@ pub fn apply_origin(store: &Store, x: f64, y: f64) {
     store.amend(addresses::edit_commit_key(), &[1]);
 }
 
-fn text_field(origin_y: f64, run: &str) -> SpaceRecord {
+fn text_field(origin_y: f64) -> SpaceRecord {
     SpaceRecord {
         across: [0.0, 0.0, 0.0],
         down: [0.0, 0.025, 0.0],
@@ -66,7 +67,5 @@ fn text_field(origin_y: f64, run: &str) -> SpaceRecord {
         accepts: false,
         origin: [0.02, origin_y],
         primitive: "text".into(),
-        link: None,
-        text: run.into(),
     }
 }

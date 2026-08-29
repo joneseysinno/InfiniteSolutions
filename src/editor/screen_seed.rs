@@ -48,8 +48,6 @@ fn host(
         accepts,
         origin,
         primitive: String::new(),
-        link: None,
-        text: String::new(),
     }
 }
 
@@ -87,35 +85,30 @@ fn template(
     text: &str,
     as_text: bool,
 ) -> Spec {
-    Spec::leaf(
-        name,
-        slot,
-        SpaceRecord {
-            across: [0.08, 0.08, 0.0],
-            down: [0.08, 0.08, 0.0],
-            style: style.into(),
-            detail_override: None,
-            // Labels nest under the template address; must host so they place.
-            hosts_space: true,
-            accepts: true,
-            origin,
-            primitive: if as_text {
-                "text".into()
-            } else {
-                String::new()
-            },
-            link: None,
-            text: text.into(),
+    let rec = SpaceRecord {
+        across: [0.08, 0.08, 0.0],
+        down: [0.08, 0.08, 0.0],
+        style: style.into(),
+        detail_override: None,
+        hosts_space: true,
+        accepts: true,
+        origin,
+        primitive: if as_text {
+            "text".into()
+        } else {
+            String::new()
         },
-    )
-    .with_children(vec![build::text_run(
-        format!("{name}-label"),
-        1,
-        [0.0, 0.0, 0.0],
-        [0.0, 0.025, 0.0],
-        [0.0, 1.05],
-        name,
-    )])
+    };
+    Spec::leaf(name, slot, rec)
+        .with_payload(text.as_bytes().to_vec())
+        .with_children(vec![build::text_run(
+            format!("{name}-label"),
+            1,
+            [0.0, 0.0, 0.0],
+            [0.0, 0.025, 0.0],
+            [0.0, 1.05],
+            name,
+        )])
 }
 
 fn toolbar_rows() -> Vec<Spec> {
@@ -132,10 +125,9 @@ fn toolbar_rows() -> Vec<Spec> {
                 accepts: true,
                 origin: [0.02, 0.02],
                 primitive: "text".into(),
-                link: None,
-                text: "undo redo".into(),
             },
-        ),
+        )
+        .with_payload(b"undo redo".to_vec()),
         build::text_run("zoom", 2, [0.0, 0.0, 0.0], [0.0, 0.025, 0.0], [0.18, 0.02], "zoom"),
         Spec::leaf(
             "run",
@@ -149,9 +141,8 @@ fn toolbar_rows() -> Vec<Spec> {
                 accepts: true,
                 origin: [0.34, 0.02],
                 primitive: "text".into(),
-                link: None,
-                text: "run".into(),
             },
-        ),
+        )
+        .with_payload(b"run".to_vec()),
     ]
 }

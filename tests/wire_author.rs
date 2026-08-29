@@ -107,7 +107,7 @@ fn dragging_between_two_nodes_commits_a_wire_under_their_parent() {
     let space = decode_space(&store.stored_at(&minted).expect("wire stored")).expect("IS1");
     assert_eq!(space.primitive, "wire");
     assert_eq!(
-        space.link,
+        facade::decode_link_payload(&store.payload_at(&minted).expect("wire payload")),
         Some((
             addresses::node_a_key().to_vec(),
             addresses::node_b_key().to_vec()

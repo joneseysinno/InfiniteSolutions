@@ -36,8 +36,6 @@ fn label_record() -> SpaceRecord {
         accepts: true,
         origin: [0.05, 0.05],
         primitive: TEXT.into(),
-        link: None,
-        text: RUN.into(),
     }
 }
 
@@ -46,6 +44,7 @@ fn seeded() -> (tempfile::TempDir, facade::Store) {
     let store = facade::open(dir.path()).expect("open store");
     editor::seed(|k| store.has(k), |k, v| store.put(k, v));
     store.put(LABEL_KEY, &encode_space(&label_record()));
+    store.put_payload(LABEL_KEY, RUN.as_bytes());
     editor::bind(&store);
     store.set_surface(0.0, 0.0, f64::from(WIDTH), f64::from(HEIGHT), 1.0);
     (dir, store)

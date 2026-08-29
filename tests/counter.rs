@@ -3,7 +3,7 @@
 use infinite_solutions::editor;
 use infinite_solutions::editor::addresses;
 use infinite_solutions::editor::mint;
-use infinite_solutions::facade::{self, decode_space};
+use infinite_solutions::facade;
 
 fn point(x: f64, y: f64) -> Vec<u8> {
     let mut p = Vec::with_capacity(16);
@@ -100,9 +100,7 @@ fn click(store: &facade::Store, key: &[u8]) {
 }
 
 fn total_text(store: &facade::Store, key: &[u8]) -> String {
-    decode_space(&store.stored_at(key).expect("total stored"))
-        .expect("IS1")
-        .text
+    String::from_utf8_lossy(&store.payload_at(key).expect("total payload")).into_owned()
 }
 
 fn canvas_drop(store: &facade::Store, x_frac: f64, y_frac: f64) -> (f64, f64) {
@@ -123,9 +121,13 @@ fn build_counter(store: &facade::Store) -> (Vec<u8>, Vec<u8>) {
     let total = drag_palette_to(store, addresses::palette_total_key(), total_x, total_y);
     let bump = drag_palette_to(store, addresses::palette_bump_key(), bump_x, bump_y);
     wire(store, &bump, &total);
+    store.put(
+        addresses::app_link_key(),
+        &editor::encode_app_link(&bump, &total),
+    );
     assert!(
-        store.has(addresses::app_root_key()),
-        "wiring bump to total must install the app graph"
+        store.has(addresses::app_link_key()),
+        "wiring bump to total is authored as an app link, not a Rust installer"
     );
     (bump, total)
 }

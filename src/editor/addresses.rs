@@ -80,6 +80,15 @@ pub const SCREEN_ROOT: &str = "/screen/";
 
 // ── Derivation (O32) ─────────────────────────────────────────────────────────
 
+/// Reserved child slot for a space's per-shape payload (E17 / O26). Not a Spec
+/// slot and not issued by [`MintSeed`] (`0x0100+`).
+pub const PAYLOAD_SLOT: u32 = 0xFFFF;
+
+/// Address of the shape payload under `space` — not an `IS1` record.
+pub fn payload_key(space: &[u8]) -> Vec<u8> {
+    crate::facade::payload_key(space)
+}
+
 /// Append a big-endian `u16` slot under `parent` (slot `0` reserved).
 pub fn child_key(parent: &[u8], slot: u32) -> Vec<u8> {
     assert!(slot >= 1 && slot <= 0xFFFF, "slot out of range");
@@ -137,6 +146,12 @@ content_key!(toolbar_history_key, SCREEN_ROOT_KEY, 4, 1);
 content_key!(toolbar_zoom_key, SCREEN_ROOT_KEY, 4, 2);
 content_key!(toolbar_run_key, SCREEN_ROOT_KEY, 4, 3);
 
+content_key!(innovator_key, SCREEN_ROOT_KEY, 5);
+content_key!(innovator_header_key, SCREEN_ROOT_KEY, 5, 1);
+content_key!(innovator_field_a_key, SCREEN_ROOT_KEY, 5, 2);
+content_key!(innovator_field_b_key, SCREEN_ROOT_KEY, 5, 3);
+content_key!(innovator_action_key, SCREEN_ROOT_KEY, 5, 4);
+
 // Styles
 content_key!(style_plain_key, STYLE_ROOT_KEY, 1);
 content_key!(style_canvas_key, STYLE_ROOT_KEY, 2);
@@ -168,6 +183,11 @@ content_key!(behaviour_encode_wire_key, BEHAVIOUR_ROOT_KEY, 22);
 content_key!(behaviour_wire_amend_key, BEHAVIOUR_ROOT_KEY, 23);
 content_key!(behaviour_wire_commit_key, BEHAVIOUR_ROOT_KEY, 24);
 content_key!(behaviour_wire_gate_key, BEHAVIOUR_ROOT_KEY, 25);
+content_key!(behaviour_text_read_key, BEHAVIOUR_ROOT_KEY, 26);
+content_key!(behaviour_text_map_key, BEHAVIOUR_ROOT_KEY, 27);
+content_key!(behaviour_text_gate_key, BEHAVIOUR_ROOT_KEY, 28);
+content_key!(behaviour_text_amend_key, BEHAVIOUR_ROOT_KEY, 29);
+content_key!(behaviour_text_commit_key, BEHAVIOUR_ROOT_KEY, 30);
 
 // Gestures
 content_key!(drag_from_key, GESTURE_ROOT_KEY, 1);
@@ -189,14 +209,31 @@ content_key!(wire_mismatch_key, GESTURE_ROOT_KEY, 14);
 content_key!(camera_key, SESSION_ROOT_KEY, 1);
 content_key!(select_key, SESSION_ROOT_KEY, 2);
 content_key!(run_key, SESSION_ROOT_KEY, 3);
+content_key!(focus_key, SESSION_ROOT_KEY, 4);
 
 // Graph / app
 content_key!(app_root_key, GRAPH_ROOT_KEY, 1);
 content_key!(app_link_key, GRAPH_ROOT_KEY, 1, 1);
-content_key!(app_read_key, GRAPH_ROOT_KEY, 1, 2);
-content_key!(app_increment_key, GRAPH_ROOT_KEY, 1, 3);
-content_key!(app_amend_key, GRAPH_ROOT_KEY, 1, 4);
-content_key!(app_commit_key, GRAPH_ROOT_KEY, 1, 5);
+content_key!(app_use_key, GRAPH_ROOT_KEY, 1, 6);
+
+content_key!(increment_def_key, GRAPH_ROOT_KEY, 2);
+content_key!(increment_read_key, GRAPH_ROOT_KEY, 2, 1);
+content_key!(increment_map_key, GRAPH_ROOT_KEY, 2, 2);
+content_key!(increment_amend_key, GRAPH_ROOT_KEY, 2, 3);
+content_key!(increment_commit_key, GRAPH_ROOT_KEY, 2, 4);
+
+content_key!(field_row_def_key, GRAPH_ROOT_KEY, 3);
+content_key!(field_row_map_key, GRAPH_ROOT_KEY, 3, 1);
+content_key!(field_row_fold_key, GRAPH_ROOT_KEY, 3, 2);
+
+content_key!(panel_def_key, GRAPH_ROOT_KEY, 4);
+content_key!(panel_fold_key, GRAPH_ROOT_KEY, 4, 1);
+
+content_key!(section_header_def_key, GRAPH_ROOT_KEY, 5);
+content_key!(section_header_map_key, GRAPH_ROOT_KEY, 5, 1);
+
+content_key!(action_bar_def_key, GRAPH_ROOT_KEY, 6);
+content_key!(action_bar_fold_key, GRAPH_ROOT_KEY, 6, 1);
 
 #[cfg(test)]
 mod tests {
@@ -215,6 +252,21 @@ mod tests {
         assert_eq!(roots.len(), 6);
         assert_eq!(screen_end_key(), STYLE_ROOT_KEY);
         assert_eq!(graph_end_key(), &[0x70]);
+    }
+
+    #[test]
+    fn payload_key_uses_the_reserved_slot() {
+        let space = canvas_key();
+        let key = payload_key(space);
+        assert_eq!(key, child_key(space, PAYLOAD_SLOT));
+        assert_ne!(PAYLOAD_SLOT, 0);
+        assert!(PAYLOAD_SLOT > 0x00FF, "above typical Spec slots 1..N");
+        assert!(PAYLOAD_SLOT != 0x0100, "not the MintSeed start");
+        let text = b"hello";
+        assert!(
+            crate::facade::decode_space(text).is_none(),
+            "payload bytes are not an IS1 space"
+        );
     }
 
     #[test]

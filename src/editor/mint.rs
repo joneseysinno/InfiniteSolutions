@@ -75,7 +75,14 @@ impl MintSeed {
         if self.next == 0 || self.next > SLOT_MAX {
             return None;
         }
-        let slot = self.next;
+        let slot = if self.next == crate::editor::addresses::PAYLOAD_SLOT {
+            self.next.saturating_add(1)
+        } else {
+            self.next
+        };
+        if slot == 0 || slot > SLOT_MAX || slot == crate::editor::addresses::PAYLOAD_SLOT {
+            return None;
+        }
         Some((slot, Self { next: slot + 1 }))
     }
 }

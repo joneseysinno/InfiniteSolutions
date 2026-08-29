@@ -14,6 +14,7 @@ pub mod toolbar;
 
 mod app;
 mod behaviour_seed;
+mod component_seed;
 mod genesis;
 mod inspector;
 mod palette;
@@ -22,6 +23,7 @@ mod screen_seed;
 mod styles;
 mod wire;
 
+pub use app::encode_app_link;
 pub use genesis::seed;
 pub use inspector::{apply_origin, refresh as refresh_inspector};
 pub use run::{bind, run};

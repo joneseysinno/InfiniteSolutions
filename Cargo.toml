@@ -127,6 +127,22 @@ path = "tests/mint_identical.rs"
 name = "spec_flatten"
 path = "tests/spec_flatten.rs"
 
+[[test]]
+name = "open_record"
+path = "tests/open_record.rs"
+
+[[test]]
+name = "stored_component"
+path = "tests/stored_component.rs"
+
+[[test]]
+name = "focus"
+path = "tests/focus.rs"
+
+[[test]]
+name = "innovator_screen"
+path = "tests/innovator_screen.rs"
+
 [workspace]
 resolver = "3"
 members = [

@@ -20,11 +20,12 @@ fn mismatch_graph() -> Vec<u8> {
             BlockRecord {
                 at: addresses::node_a_key().to_vec(),
                 kind: "native".into(),
-                target: b"offset".to_vec(),
+                target: b"map".to_vec(),
                 ports: vec![
-                    port("from", true, tags::POINT, false),
-                    port("to", true, tags::POINT, false),
-                    port("delta", false, tags::POINT, false),
+                    port("fn", true, tags::VALUE, true),
+                    port("val", true, tags::VALUE, true),
+                    port("aux", true, tags::VALUE, false),
+                    port("out", false, tags::VALUE, false),
                 ],
             },
             BlockRecord {
@@ -38,7 +39,7 @@ fn mismatch_graph() -> Vec<u8> {
             },
         ],
         wires: vec![WireRecord {
-            sources: vec![(addresses::node_a_key().to_vec(), "delta".into())],
+            sources: vec![(addresses::node_a_key().to_vec(), "out".into())],
             sinks: vec![(addresses::node_b_key().to_vec(), "addr".into())],
         }],
     })

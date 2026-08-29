@@ -25,9 +25,9 @@ pub use addr::{
 pub use artifacts::{register, register_plan};
 pub use finding::{from_empty_screen, from_precision_floor};
 pub use record::{
-    decode_composition, decode_selection, decode_space, decode_style, encode_composition,
-    encode_selection, encode_space, encode_style, BlockRecord, CompositionRecord, PortRecord,
-    SpaceRecord, WireRecord,
+    decode_composition, decode_link_payload, decode_selection, decode_space, decode_style,
+    encode_composition, encode_link_payload, encode_selection, encode_space, encode_style,
+    payload_key, BlockRecord, CompositionRecord, PortRecord, SpaceRecord, WireRecord, PAYLOAD_SLOT,
 };
 pub use open::{open, open_with_options, Store};
 pub use present::SelectionView;

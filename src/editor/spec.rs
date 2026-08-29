@@ -1,10 +1,11 @@
 //! Authoring sugar: nested [`Spec`] flattens to addressed records (E16 / O34).
 //!
 //! Nesting at authoring time does not make the runtime a tree — containment is
-//! address prefix only after flatten.
+//! address prefix only after flatten. Shape payload is a second put at
+//! [`crate::facade::payload_key`] (E17 / O26).
 
 use crate::editor::mint::{bits_of, child, slot_for_name};
-use crate::facade::{encode_space, SpaceRecord};
+use crate::facade::{encode_space, payload_key, SpaceRecord};
 
 /// Transient nested authoring value. Flattened by [`flatten`].
 #[derive(Clone)]
@@ -14,8 +15,10 @@ pub struct Spec {
     /// Explicit child slot under the parent (`1..=0xFFFF`). Prefer this over hashing
     /// when the address must match a well-known key.
     pub slot: u32,
-    /// Space payload.
+    /// Space payload (no `link` / `text` columns — E17).
     pub record: SpaceRecord,
+    /// Per-shape payload bytes (text run, link endpoints). Not an `IS1` record.
+    pub shape_payload: Option<Vec<u8>>,
     /// Nested children (authoring sugar only).
     pub children: Vec<Spec>,
 }
@@ -27,8 +30,15 @@ impl Spec {
             name: name.into(),
             slot,
             record,
+            shape_payload: None,
             children: Vec::new(),
         }
+    }
+
+    /// Attach a shape payload (text or encoded link).
+    pub fn with_payload(mut self, bytes: impl Into<Vec<u8>>) -> Self {
+        self.shape_payload = Some(bytes.into());
+        self
     }
 
     /// Attach children.
@@ -43,7 +53,7 @@ impl Spec {
 pub struct FlatPut {
     /// Store key.
     pub key: Vec<u8>,
-    /// Encoded [`SpaceRecord`] bytes.
+    /// Encoded [`SpaceRecord`] bytes, or raw shape payload.
     pub payload: Vec<u8>,
 }
 
@@ -67,6 +77,12 @@ fn flatten_into(parent: &[u8], specs: &[Spec], out: &mut Vec<FlatPut>) {
             key: key.clone(),
             payload: encode_space(&spec.record),
         });
+        if let Some(shape) = &spec.shape_payload {
+            out.push(FlatPut {
+                key: payload_key(&key),
+                payload: shape.clone(),
+            });
+        }
         if !spec.children.is_empty() {
             flatten_into(&key, &spec.children, out);
         }
@@ -76,7 +92,7 @@ fn flatten_into(parent: &[u8], specs: &[Spec], out: &mut Vec<FlatPut>) {
 /// Convenience builders for common space shapes (not a widget toolkit).
 pub mod build {
     use super::Spec;
-    use crate::facade::SpaceRecord;
+    use crate::facade::{encode_link_payload, SpaceRecord};
 
     /// An empty area space.
     pub fn area(
@@ -87,22 +103,7 @@ pub mod build {
         origin: [f64; 2],
         hosts: bool,
     ) -> Spec {
-        Spec::leaf(
-            name,
-            slot,
-            SpaceRecord {
-                across,
-                down,
-                style: "plain".into(),
-                detail_override: None,
-                hosts_space: hosts,
-                accepts: true,
-                origin,
-                primitive: String::new(),
-                link: None,
-                text: String::new(),
-            },
-        )
+        Spec::leaf(name, slot, bare(across, down, "plain", origin, hosts, true, ""))
     }
 
     /// A panel-like host space (canvas style).
@@ -116,22 +117,29 @@ pub mod build {
         Spec::leaf(
             name,
             slot,
-            SpaceRecord {
-                across,
-                down,
-                style: "canvas".into(),
-                detail_override: None,
-                hosts_space: true,
-                accepts: false,
-                origin,
-                primitive: String::new(),
-                link: None,
-                text: String::new(),
-            },
+            bare(across, down, "canvas", origin, true, false, ""),
         )
     }
 
-    /// A text run.
+    /// An accepting text field (E19). Same shape as [`text_run`], `accepts` set.
+    pub fn field(
+        name: impl Into<String>,
+        slot: u32,
+        across: [f64; 3],
+        down: [f64; 3],
+        origin: [f64; 2],
+        text: impl Into<String>,
+    ) -> Spec {
+        let text = text.into();
+        Spec::leaf(
+            name,
+            slot,
+            bare(across, down, "plain", origin, false, true, "text"),
+        )
+        .with_payload(text.into_bytes())
+    }
+
+    /// A text run. Payload is the run bytes, not a record field.
     pub fn text_run(
         name: impl Into<String>,
         slot: u32,
@@ -140,22 +148,13 @@ pub mod build {
         origin: [f64; 2],
         text: impl Into<String>,
     ) -> Spec {
+        let text = text.into();
         Spec::leaf(
             name,
             slot,
-            SpaceRecord {
-                across,
-                down,
-                style: "plain".into(),
-                detail_override: None,
-                hosts_space: false,
-                accepts: false,
-                origin,
-                primitive: "text".into(),
-                link: None,
-                text: text.into(),
-            },
+            bare(across, down, "plain", origin, false, false, "text"),
         )
+        .with_payload(text.into_bytes())
     }
 
     /// A wire/link between two addresses.
@@ -169,19 +168,38 @@ pub mod build {
         Spec::leaf(
             name,
             slot,
-            SpaceRecord {
-                across: [stroke, stroke, 0.0],
-                down: [stroke, stroke, 0.0],
-                style: "wire".into(),
-                detail_override: None,
-                hosts_space: false,
-                accepts: false,
-                origin: [0.0, 0.0],
-                primitive: "wire".into(),
-                link: Some((from, to)),
-                text: String::new(),
-            },
+            bare(
+                [stroke, stroke, 0.0],
+                [stroke, stroke, 0.0],
+                "wire",
+                [0.0, 0.0],
+                false,
+                false,
+                "wire",
+            ),
         )
+        .with_payload(encode_link_payload(&from, &to))
+    }
+
+    fn bare(
+        across: [f64; 3],
+        down: [f64; 3],
+        style: &str,
+        origin: [f64; 2],
+        hosts: bool,
+        accepts: bool,
+        primitive: &str,
+    ) -> SpaceRecord {
+        SpaceRecord {
+            across,
+            down,
+            style: style.into(),
+            detail_override: None,
+            hosts_space: hosts,
+            accepts,
+            origin,
+            primitive: primitive.into(),
+        }
     }
 }
 
@@ -205,8 +223,6 @@ mod tests {
                 accepts: true,
                 origin: [0.0, 0.0],
                 primitive: String::new(),
-                link: None,
-                text: String::new(),
             },
         )
         .with_children(vec![build::area(

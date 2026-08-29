@@ -1,11 +1,12 @@
 # Infinite Solutions — Building Vocabulary
 
-> **Status:** draft 1, 2026-08-29. **Records nothing** (R29). Candidate alphabet for
-> E18a — declare the set in prose before the registry and `check-rules.sh` land.
+> **Status:** draft 2, 2026-08-29. **Declared at E18a.** The set lives in
+> [`EDITOR.md`](./specs/EDITOR.md) §5 and `scripts/check-rules.sh`.
 >
 > Rules: [`RULES.md`](./RULES.md) · Decisions: [`DECISIONS.md`](./DECISIONS.md) ·
 > Charter: [`CHARTER.md`](./CHARTER.md) · Ledger: [`SALVAGE.md`](./SALVAGE.md) ·
 > Plan: [`plans/AUTHORING-STACK.md`](./plans/AUTHORING-STACK.md) §5 ·
+> E17–E20: [`plans/E17-E20-RECORD-ALPHABET.md`](./plans/E17-E20-RECORD-ALPHABET.md) ·
 > Specs: [`specs/COMPOSITOR.md`](./specs/COMPOSITOR.md) §5 ·
 > [`specs/PRESENTER.md`](./specs/PRESENTER.md) §5
 

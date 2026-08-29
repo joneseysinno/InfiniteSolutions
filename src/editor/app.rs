@@ -1,22 +1,11 @@
-//! User-authored apps — a wire from bump to total runs an increment graph (E13.7).
+//! User-authored apps — a bump-to-total link runs the stored increment definition.
 
 use crate::editor::addresses;
 use crate::editor::tags;
-use crate::facade::{
-    decode_space, encode_composition, BlockRecord, CompositionRecord, PortRecord, Store,
-    WireRecord,
-};
+use crate::facade::Store;
 
-/// Links a bump block to a total block and installs the increment composition.
-pub fn connect(store: &Store, from: &[u8], to: &[u8]) {
-    let Some((bump, total)) = classify(store, from, to) else {
-        return;
-    };
-    store.put(addresses::app_link_key(), &encode_link(&bump, &total));
-    store.put(addresses::app_root_key(), &increment_graph());
-}
-
-fn encode_link(bump: &[u8], total: &[u8]) -> Vec<u8> {
+/// Encodes the bump/total pair the increment graph reads (E13.7 / E18b).
+pub fn encode_app_link(bump: &[u8], total: &[u8]) -> Vec<u8> {
     let mut link = Vec::with_capacity(4 + bump.len() + total.len());
     link.extend_from_slice(&(bump.len() as u16).to_le_bytes());
     link.extend_from_slice(bump);
@@ -43,34 +32,7 @@ fn decode_link(link: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
     Some((bump, total))
 }
 
-fn classify(store: &Store, a: &[u8], b: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
-    let sa = space_at(store, a)?;
-    let sb = space_at(store, b)?;
-    if is_bump(&sa) && is_total(&sb) {
-        Some((a.to_vec(), b.to_vec()))
-    } else if is_bump(&sb) && is_total(&sa) {
-        Some((b.to_vec(), a.to_vec()))
-    } else {
-        None
-    }
-}
-
-fn space_at(store: &Store, key: &[u8]) -> Option<crate::facade::SpaceRecord> {
-    store
-        .stored_at(key)
-        .or_else(|| store.pending_at(key))
-        .and_then(|b| decode_space(&b))
-}
-
-fn is_bump(space: &crate::facade::SpaceRecord) -> bool {
-    space.style == "bump" || space.text == "+"
-}
-
-fn is_total(space: &crate::facade::SpaceRecord) -> bool {
-    space.style == "total" || space.text.parse::<i64>().is_ok()
-}
-
-/// Runs the app graph when the bump block is clicked.
+/// Runs the stored increment definition when the bump block is clicked.
 pub fn try_run(store: &Store) {
     let Some(link) = store.stored_at(addresses::app_link_key()) else {
         return;
@@ -87,81 +49,39 @@ pub fn try_run(store: &Store) {
     ) else {
         return;
     };
-    if hit != bump {
+    if hit != bump && !hit.starts_with(&bump) {
         return;
     }
-    store.write_slot(addresses::app_read_key(), "addr", &total, tags::ADDRESS);
-    store.write_slot(addresses::app_amend_key(), "addr", &total, tags::ADDRESS);
-    store.write_slot(addresses::app_commit_key(), "addr", &total, tags::ADDRESS);
-    store.run_at(addresses::app_root_key());
-}
-
-fn increment_graph() -> Vec<u8> {
-    encode_composition(&CompositionRecord {
-        compilable: true,
-        blocks: vec![
-            native(
-                addresses::app_read_key(),
-                b"read",
-                vec![
-                    port("addr", true, tags::ADDRESS, true),
-                    port("val", false, tags::VALUE, false),
-                ],
-            ),
-            native(
-                addresses::app_increment_key(),
-                b"increment-text",
-                vec![
-                    port("val", true, tags::VALUE, true),
-                    port("out", false, tags::VALUE, false),
-                ],
-            ),
-            native(
-                addresses::app_amend_key(),
-                b"amend",
-                vec![
-                    port("addr", true, tags::ADDRESS, true),
-                    port("val", true, tags::VALUE, false),
-                    port("pending", false, tags::FLAG, false),
-                ],
-            ),
-            native(
-                addresses::app_commit_key(),
-                b"commit",
-                vec![
-                    port("addr", true, tags::ADDRESS, true),
-                    port("done", false, tags::FLAG, false),
-                ],
-            ),
-        ],
-        wires: vec![
-            WireRecord {
-                sources: vec![(addresses::app_read_key().to_vec(), "val".into())],
-                sinks: vec![(addresses::app_increment_key().to_vec(), "val".into())],
-            },
-            WireRecord {
-                sources: vec![(addresses::app_increment_key().to_vec(), "out".into())],
-                sinks: vec![(addresses::app_amend_key().to_vec(), "val".into())],
-            },
-        ],
-    })
-}
-
-fn native(at: &[u8], target: &[u8], ports: Vec<PortRecord>) -> BlockRecord {
-    BlockRecord {
-        at: at.to_vec(),
-        kind: "native".into(),
-        target: target.to_vec(),
-        ports,
-    }
-}
-
-fn port(name: &str, incoming: bool, tag: &str, required: bool) -> PortRecord {
-    PortRecord {
-        name: name.into(),
-        incoming,
-        tag: tag.into(),
-        arity: None,
-        required,
-    }
+    let total_payload = crate::facade::payload_key(&total);
+    store.write_slot(
+        addresses::increment_read_key(),
+        "addr",
+        &total_payload,
+        tags::ADDRESS,
+    );
+    store.write_slot(
+        addresses::increment_map_key(),
+        "fn",
+        b"increment-text",
+        tags::VALUE,
+    );
+    store.write_slot(
+        addresses::increment_map_key(),
+        "aux",
+        &[],
+        tags::VALUE,
+    );
+    store.write_slot(
+        addresses::increment_amend_key(),
+        "addr",
+        &total_payload,
+        tags::ADDRESS,
+    );
+    store.write_slot(
+        addresses::increment_commit_key(),
+        "addr",
+        &total_payload,
+        tags::ADDRESS,
+    );
+    store.run_at(addresses::increment_def_key());
 }

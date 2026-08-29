@@ -5,7 +5,7 @@
 //!
 //! The behaviour composition contains store effects (`read` / `amend` / `commit`).
 //! D19's bit-for-bit law is for a pure function of declared inputs, so the corpus
-//! draws the editor's *pure* steps — `offset` then `displace` — from the linked plan.
+//! draws the editor's *pure* steps — the offset `map` then the displace `map` — from the linked plan.
 
 use infinite_compositor::binding::ports::{Backends as BackendsPort, Values as ValuesPort};
 use infinite_compositor::binding::{check, TIER0_KEY};
@@ -74,7 +74,10 @@ fn tier0_registers_by_passing_the_editors_plan() {
         steps: plan
             .steps
             .iter()
-            .filter(|s| s.key.as_ref() == "offset" || s.key.as_ref() == "displace")
+            .filter(|s| {
+                s.block.as_bytes() == addresses::behaviour_offset_key()
+                    || s.block.as_bytes() == addresses::behaviour_displace_key()
+            })
             .cloned()
             .collect(),
     };
@@ -98,7 +101,7 @@ fn tier0_registers_by_passing_the_editors_plan() {
 
     assert!(
         check(backend, &corpus, &blocks, &seed),
-        "tier 0 must match interpret on the editor's offset/displace plan"
+        "tier 0 must match interpret on the editor's offset/displace map steps"
     );
     assert!(BackendsPort::backend(&backends, "native").is_none());
 }

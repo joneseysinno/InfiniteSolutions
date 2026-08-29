@@ -37,8 +37,6 @@ fn label_record(text: &str) -> SpaceRecord {
         // Bottom of the canvas — away from genesis nodes that would dominate a fingerprint.
         origin: [0.05, 0.70],
         primitive: TEXT.into(),
-        link: None,
-        text: text.into(),
     }
 }
 
@@ -47,6 +45,7 @@ fn seeded() -> (tempfile::TempDir, facade::Store) {
     let store = facade::open(dir.path()).expect("open store");
     editor::seed(|k| store.has(k), |k, v| store.put(k, v));
     store.put(LABEL_KEY, &encode_space(&label_record("0")));
+    store.put_payload(LABEL_KEY, b"0");
     editor::bind(&store);
     store.set_surface(0.0, 0.0, f64::from(WIDTH), f64::from(HEIGHT), 1.0);
     (dir, store)
@@ -94,6 +93,7 @@ fn ink_fingerprint(pixels: &[u8], showing: infinite_presenter::core::Rect) -> Ve
 
 fn draw_char(store: &facade::Store, ch: char) -> Vec<u8> {
     store.put(LABEL_KEY, &encode_space(&label_record(&ch.to_string())));
+    store.put_payload(LABEL_KEY, ch.to_string().as_bytes());
     let Some(mut surf) = surface() else {
         panic!("no GPU adapter available");
     };

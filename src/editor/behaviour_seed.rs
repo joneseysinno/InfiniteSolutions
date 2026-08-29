@@ -40,15 +40,7 @@ pub fn behaviour() -> CompositionRecord {
             port("done", false, tags::FLAG, false),
         ],
     );
-    let offset = native(
-        addresses::behaviour_offset_key(),
-        b"offset",
-        vec![
-            port("from", true, tags::POINT, false),
-            port("to", true, tags::POINT, false),
-            port("delta", false, tags::POINT, false),
-        ],
-    );
+    let offset = mapped(addresses::behaviour_offset_key());
     let gate = native(
         addresses::behaviour_gate_key(),
         b"gate",
@@ -58,15 +50,7 @@ pub fn behaviour() -> CompositionRecord {
             port("pass", false, tags::VALUE, false),
         ],
     );
-    let displace = native(
-        addresses::behaviour_displace_key(),
-        b"displace",
-        vec![
-            port("record", true, tags::VALUE, true),
-            port("delta", true, tags::POINT, true),
-            port("out", false, tags::VALUE, false),
-        ],
-    );
+    let displace = mapped(addresses::behaviour_displace_key());
     let select_gate = native(
         addresses::behaviour_select_gate_key(),
         b"gate",
@@ -78,9 +62,11 @@ pub fn behaviour() -> CompositionRecord {
     );
     let encode_selection = native(
         addresses::behaviour_encode_selection_key(),
-        b"encode-selection",
+        b"map",
         vec![
-            port("hit", true, tags::ADDRESS, true),
+            port("fn", true, tags::VALUE, false),
+            port("val", true, tags::ADDRESS, false),
+            port("aux", true, tags::VALUE, false),
             port("out", false, tags::VALUE, false),
         ],
     );
@@ -109,15 +95,7 @@ pub fn behaviour() -> CompositionRecord {
             port("val", false, tags::VALUE, false),
         ],
     );
-    let set_origin = native(
-        addresses::behaviour_set_origin_key(),
-        b"set-origin",
-        vec![
-            port("record", true, tags::VALUE, true),
-            port("origin", true, tags::POINT, false),
-            port("out", false, tags::VALUE, false),
-        ],
-    );
+    let set_origin = mapped(addresses::behaviour_set_origin_key());
     let edit_gate = native(
         addresses::behaviour_edit_gate_key(),
         b"gate",
@@ -152,15 +130,7 @@ pub fn behaviour() -> CompositionRecord {
             port("val", false, tags::VALUE, false),
         ],
     );
-    let place_set_origin = native(
-        addresses::behaviour_place_set_origin_key(),
-        b"set-origin",
-        vec![
-            port("record", true, tags::VALUE, true),
-            port("origin", true, tags::POINT, false),
-            port("out", false, tags::VALUE, false),
-        ],
-    );
+    let place_set_origin = mapped(addresses::behaviour_place_set_origin_key());
     let place_gate = native(
         addresses::behaviour_place_gate_key(),
         b"gate",
@@ -187,15 +157,7 @@ pub fn behaviour() -> CompositionRecord {
             port("done", false, tags::FLAG, false),
         ],
     );
-    let encode_wire = native(
-        addresses::behaviour_encode_wire_key(),
-        b"encode-wire",
-        vec![
-            port("from", true, tags::ADDRESS, false),
-            port("to", true, tags::ADDRESS, false),
-            port("out", false, tags::VALUE, false),
-        ],
-    );
+    let encode_wire = mapped(addresses::behaviour_encode_wire_key());
     let wire_gate = native(
         addresses::behaviour_wire_gate_key(),
         b"gate",
@@ -216,6 +178,41 @@ pub fn behaviour() -> CompositionRecord {
     );
     let wire_commit = native(
         addresses::behaviour_wire_commit_key(),
+        b"commit",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("done", false, tags::FLAG, false),
+        ],
+    );
+    let text_read = native(
+        addresses::behaviour_text_read_key(),
+        b"read",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("val", false, tags::VALUE, false),
+        ],
+    );
+    let text_map = mapped(addresses::behaviour_text_map_key());
+    let text_gate = native(
+        addresses::behaviour_text_gate_key(),
+        b"gate",
+        vec![
+            port("val", true, tags::VALUE, false),
+            port("on", true, tags::FLAG, false),
+            port("pass", false, tags::VALUE, false),
+        ],
+    );
+    let text_amend = native(
+        addresses::behaviour_text_amend_key(),
+        b"amend",
+        vec![
+            port("addr", true, tags::ADDRESS, false),
+            port("val", true, tags::VALUE, false),
+            port("pending", false, tags::FLAG, false),
+        ],
+    );
+    let text_commit = native(
+        addresses::behaviour_text_commit_key(),
         b"commit",
         vec![
             port("addr", true, tags::ADDRESS, false),
@@ -250,6 +247,11 @@ pub fn behaviour() -> CompositionRecord {
             wire_gate,
             wire_amend,
             wire_commit,
+            text_read,
+            text_map,
+            text_gate,
+            text_amend,
+            text_commit,
         ],
         wires: vec![
             w(
@@ -258,16 +260,16 @@ pub fn behaviour() -> CompositionRecord {
                     (addresses::behaviour_read_key(), "addr"),
                     (addresses::behaviour_amend_key(), "addr"),
                     (addresses::behaviour_commit_key(), "addr"),
-                    (addresses::behaviour_encode_selection_key(), "hit"),
+                    (addresses::behaviour_encode_selection_key(), "val"),
                 ],
             ),
             w(
                 &[(addresses::behaviour_read_key(), "val")],
-                &[(addresses::behaviour_displace_key(), "record")],
+                &[(addresses::behaviour_displace_key(), "val")],
             ),
             w(
-                &[(addresses::behaviour_offset_key(), "delta")],
-                &[(addresses::behaviour_displace_key(), "delta")],
+                &[(addresses::behaviour_offset_key(), "out")],
+                &[(addresses::behaviour_displace_key(), "aux")],
             ),
             w(
                 &[(addresses::behaviour_displace_key(), "out")],
@@ -287,7 +289,7 @@ pub fn behaviour() -> CompositionRecord {
             ),
             w(
                 &[(addresses::behaviour_edit_read_key(), "val")],
-                &[(addresses::behaviour_set_origin_key(), "record")],
+                &[(addresses::behaviour_set_origin_key(), "val")],
             ),
             w(
                 &[(addresses::behaviour_set_origin_key(), "out")],
@@ -299,7 +301,7 @@ pub fn behaviour() -> CompositionRecord {
             ),
             w(
                 &[(addresses::behaviour_place_read_key(), "val")],
-                &[(addresses::behaviour_place_set_origin_key(), "record")],
+                &[(addresses::behaviour_place_set_origin_key(), "val")],
             ),
             w(
                 &[(addresses::behaviour_place_set_origin_key(), "out")],
@@ -317,6 +319,18 @@ pub fn behaviour() -> CompositionRecord {
                 &[(addresses::behaviour_wire_gate_key(), "pass")],
                 &[(addresses::behaviour_wire_amend_key(), "val")],
             ),
+            w(
+                &[(addresses::behaviour_text_read_key(), "val")],
+                &[(addresses::behaviour_text_map_key(), "val")],
+            ),
+            w(
+                &[(addresses::behaviour_text_map_key(), "out")],
+                &[(addresses::behaviour_text_gate_key(), "val")],
+            ),
+            w(
+                &[(addresses::behaviour_text_gate_key(), "pass")],
+                &[(addresses::behaviour_text_amend_key(), "val")],
+            ),
         ],
     }
 }
@@ -332,6 +346,19 @@ fn w(sources: &[(&[u8], &str)], sinks: &[(&[u8], &str)]) -> WireRecord {
             .map(|(a, p)| (a.to_vec(), (*p).into()))
             .collect(),
     }
+}
+
+fn mapped(at: &[u8]) -> BlockRecord {
+    native(
+        at,
+        b"map",
+        vec![
+            port("fn", true, tags::VALUE, false),
+            port("val", true, tags::VALUE, false),
+            port("aux", true, tags::VALUE, false),
+            port("out", false, tags::VALUE, false),
+        ],
+    )
 }
 
 fn native(at: &[u8], key: &[u8], ports: Vec<PortRecord>) -> BlockRecord {

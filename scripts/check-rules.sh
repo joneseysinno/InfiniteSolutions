@@ -288,8 +288,35 @@ check D29 "editor names no graphics or windowing crate" \
   nogrep 'wgpu|winit|glyphon|cosmic_text|raw_window_handle|softbuffer|glam' $ED
 
 # §2.1 · appearance is authored data. There is no widget block.
+# Finding 22: an anchored filename grep let increment_text.rs pass as a native.
+# The live registry is the check; a one-off cannot hide behind a helper file.
 check §2.1 "no widget-shaped block" \
-  bash -c '! ls src/editor/blocks/ | grep -Eq "^(rectangle|label|panel|widget|button|text)\.rs$"'
+  bash -c '! ls src/editor/blocks/ | grep -Eqi "^(rectangle|label|panel|widget|button)\.rs$"'
+check §2.1 "retired one-offs are not natives" \
+  bash -c '! awk "/fn native_signatures/,/^}/" src/facade/ports/blocks.rs \
+           | grep -Eq "\"(increment-text|encode-selection|encode-wire|set-origin|offset|displace)\""'
+
+# E18a · declared effect set. Live natives ⊆ {read,amend,commit,gate,probe-at,map,fold}.
+# Rule 1: a primitive used by fewer than two src/ sites is a one-off.
+# Rule 2: a component that requires a new primitive means the alphabet was wrong.
+# Keys are the bare quoted line inside native_signatures (not port names).
+check E18a.0 "each declared effect has a two-domain line" \
+  bash -c 'for k in probe-at read amend commit gate map fold; do
+             grep -Fq -- "$k" docs/specs/EDITOR.md || exit 1
+           done'
+check E18a.2 "live natives ⊆ declared effects" \
+  bash -c 'for k in $(awk "/fn native_signatures/,/^fn sig/" src/facade/ports/blocks.rs \
+              | grep -E "^[[:space:]]+\"[a-z-]+\",[[:space:]]*$" \
+              | tr -d " \"," ); do
+             echo "probe-at read amend commit gate map fold" | grep -qw "$k" || exit 1
+           done'
+check Rule1 "each live native is used by at least two src sites" \
+  bash -c 'for k in probe-at read amend commit gate map fold; do
+             n=$(grep -R --include="*.rs" -F "b\"$k\"" src | wc -l)
+             [ "$n" -ge 2 ] || { echo "$k used $n times"; exit 1; }
+           done'
+check Rule2 "kind != native appears in src (composition closes)" \
+  bash -c 'grep -R --include="*.rs" -q "kind: \"delegate\"" src'
 
 # D34 · addresses live in exactly one file.
 check D34 "no literal well-known address outside addresses.rs" \
@@ -362,6 +389,22 @@ check E13.6 "toolbar undo; zoom readout; run pauses tick" \
 # E13.7 · counter app authored by pointer; increments and persists.
 check E13.7 "counter increments on bump click; total survives restart" \
   cargo test --offline --test counter
+
+# E17 · open record: fourth shape stores payload under the space.
+check E17 "fourth shape draws from payload_key; no field-per-primitive" \
+  cargo test --offline --test open_record
+
+# E18b · stored definition; two screens; counter has no Rust installer.
+check E18b "two screens share one store definition; no recompile" \
+  cargo test --offline --test stored_component
+
+# E19 · focus, type through composition, undo restores.
+check E19 "focus + typed payload + undo" \
+  cargo test --offline --test focus
+
+# E20 · Innovator screen; role-routed commit; re-seed without builders.
+check E20 "Innovator screen reseeds from the store" \
+  cargo test --offline --test innovator_screen
 
 echo
 if [ "$fail" -eq 0 ]; then echo "all checks passed"; else echo "findings above"; fi

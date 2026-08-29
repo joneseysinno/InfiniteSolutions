@@ -13,14 +13,12 @@ use infinite_compositor::core::{
 use infinite_presenter::core::{probe, Point};
 
 use crate::editor::blocks::{
-    amend as amend_fn, commit as commit_fn, displace as displace_fn,
-    encode_selection as encode_selection_fn, gate as gate_fn,
-    increment_text as increment_text_fn, offset as offset_fn, probe_at as probe_at_fn,
+    amend as amend_fn, commit as commit_fn, gate as gate_fn, probe_at as probe_at_fn,
     read as read_fn,
 };
 use crate::facade::addr::{compositor_addr, runtime_addr};
 use crate::facade::open::Inner;
-use crate::facade::{decode_space, encode_space};
+use crate::facade::ports::pure_fn;
 
 /// The editor's native blocks, registered under string keys.
 pub struct Blocks {
@@ -44,13 +42,9 @@ impl Blocks {
                 "commit" => Arc::new(Commit {
                     inner: Arc::clone(&inner),
                 }),
-                "offset" => Arc::new(Offset),
                 "gate" => Arc::new(Gate),
-                "encode-selection" => Arc::new(EncodeSelection),
-                "encode-wire" => Arc::new(EncodeWire),
-                "displace" => Arc::new(Displace),
-                "set-origin" => Arc::new(SetOrigin),
-                "increment-text" => Arc::new(IncrementText),
+                "map" => Arc::new(Map),
+                "fold" => Arc::new(Fold),
                 _ => Arc::new(Idle),
             };
             entries.push((key.into(), sig, primitive));
@@ -107,8 +101,20 @@ pub(crate) fn inject_natives(set: &mut DefinitionSet) {
     }
 }
 
+/// Declared live natives (E18a). Byte strings so Rule 1 counts the registry as a
+/// use site, not only the graphs that name a key.
+const LIVE_NATIVE: &[&[u8]] = &[
+    b"probe-at",
+    b"read",
+    b"amend",
+    b"commit",
+    b"gate",
+    b"map",
+    b"fold",
+];
+
 fn native_signatures() -> Vec<(&'static str, Signature)> {
-    vec![
+    let pairs = vec![
         (
             "probe-at",
             sig(&[
@@ -139,14 +145,6 @@ fn native_signatures() -> Vec<(&'static str, Signature)> {
             ]),
         ),
         (
-            "offset",
-            sig(&[
-                ("from", true, "point", false),
-                ("to", true, "point", false),
-                ("delta", false, "point", false),
-            ]),
-        ),
-        (
             "gate",
             sig(&[
                 ("val", true, "value", false),
@@ -155,44 +153,32 @@ fn native_signatures() -> Vec<(&'static str, Signature)> {
             ]),
         ),
         (
-            "encode-selection",
+            "map",
             sig(&[
-                ("hit", true, "address", true),
-                ("out", false, "value", false),
-            ]),
-        ),
-        (
-            "encode-wire",
-            sig(&[
-                ("from", true, "address", false),
-                ("to", true, "address", false),
-                ("out", false, "value", false),
-            ]),
-        ),
-        (
-            "displace",
-            sig(&[
-                ("record", true, "value", true),
-                ("delta", true, "point", true),
-                ("out", false, "value", false),
-            ]),
-        ),
-        (
-            "set-origin",
-            sig(&[
-                ("record", true, "value", true),
-                ("origin", true, "point", false),
-                ("out", false, "value", false),
-            ]),
-        ),
-        (
-            "increment-text",
-            sig(&[
+                ("fn", true, "value", true),
                 ("val", true, "value", true),
+                ("aux", true, "value", false),
                 ("out", false, "value", false),
             ]),
         ),
-    ]
+        (
+            "fold",
+            sig(&[
+                ("fn", true, "value", true),
+                ("left", true, "value", true),
+                ("right", true, "value", true),
+                ("out", false, "value", false),
+            ]),
+        ),
+    ];
+    assert!(
+        pairs
+            .iter()
+            .zip(LIVE_NATIVE)
+            .all(|((key, _), bytes)| key.as_bytes() == *bytes)
+            && pairs.len() == LIVE_NATIVE.len()
+    );
+    pairs
 }
 
 fn sig(ports: &[(&str, bool, &str, bool)]) -> Signature {
@@ -313,16 +299,6 @@ impl Primitive for Commit {
     }
 }
 
-struct Offset;
-
-impl Primitive for Offset {
-    fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
-        let from = inputs.first().map(Value::payload).unwrap_or(&[]);
-        let to = inputs.get(1).map(Value::payload).unwrap_or(&[]);
-        vec![Value::new(Tag::new("point"), offset_fn(from, to))]
-    }
-}
-
 struct Gate;
 
 impl Primitive for Gate {
@@ -336,94 +312,29 @@ impl Primitive for Gate {
     }
 }
 
-struct EncodeSelection;
+struct Map;
 
-impl Primitive for EncodeSelection {
+impl Primitive for Map {
     fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
-        let hit = inputs.first().map(Value::payload).unwrap_or(&[]);
-        vec![Value::new(Tag::new("value"), encode_selection_fn(hit))]
+        let key = std::str::from_utf8(inputs.first().map(Value::payload).unwrap_or(&[]))
+            .unwrap_or("");
+        let val = inputs.get(1).map(Value::payload).unwrap_or(&[]);
+        let aux = inputs.get(2).map(Value::payload).unwrap_or(&[]);
+        vec![Value::new(Tag::new("value"), pure_fn::apply(key, val, aux))]
     }
 }
 
-struct EncodeWire;
+struct Fold;
 
-impl Primitive for EncodeWire {
+impl Primitive for Fold {
     fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
-        let from = inputs.first().map(Value::payload).unwrap_or(&[]);
-        let to = inputs.get(1).map(Value::payload).unwrap_or(&[]);
-        if from.is_empty() || to.is_empty() {
-            return vec![Value::new(Tag::new("value"), Vec::new())];
-        }
-        let record = super::super::record::SpaceRecord {
-            across: [0.012, 0.012, 0.0],
-            down: [0.012, 0.012, 0.0],
-            style: "wire".into(),
-            detail_override: None,
-            hosts_space: false,
-            accepts: false,
-            origin: [0.0, 0.0],
-            primitive: "wire".into(),
-            link: Some((from.to_vec(), to.to_vec())),
-            text: String::new(),
-        };
+        let key = std::str::from_utf8(inputs.first().map(Value::payload).unwrap_or(&[]))
+            .unwrap_or("");
+        let left = inputs.get(1).map(Value::payload).unwrap_or(&[]);
+        let right = inputs.get(2).map(Value::payload).unwrap_or(&[]);
         vec![Value::new(
             Tag::new("value"),
-            encode_space(&record),
-        )]
-    }
-}
-
-struct Displace;
-
-impl Primitive for Displace {
-    fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
-        let origin = inputs.first().map(Value::payload).unwrap_or(&[]);
-        let delta = inputs.get(1).map(Value::payload).unwrap_or(&[]);
-        let Some(mut space) = decode_space(origin) else {
-            return vec![Value::new(Tag::new("value"), origin.to_vec())];
-        };
-        let next = displace_fn(
-            &{
-                let mut b = Vec::with_capacity(16);
-                b.extend_from_slice(&space.origin[0].to_le_bytes());
-                b.extend_from_slice(&space.origin[1].to_le_bytes());
-                b
-            },
-            delta,
-        );
-        if next.len() >= 16 {
-            space.origin[0] = f64::from_le_bytes(next[0..8].try_into().unwrap_or([0; 8]));
-            space.origin[1] = f64::from_le_bytes(next[8..16].try_into().unwrap_or([0; 8]));
-        }
-        vec![Value::new(Tag::new("value"), encode_space(&space))]
-    }
-}
-
-struct SetOrigin;
-
-impl Primitive for SetOrigin {
-    fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
-        let record = inputs.first().map(Value::payload).unwrap_or(&[]);
-        let origin = inputs.get(1).map(Value::payload).unwrap_or(&[]);
-        let Some(mut space) = decode_space(record) else {
-            return vec![Value::new(Tag::new("value"), record.to_vec())];
-        };
-        if origin.len() >= 16 {
-            space.origin[0] = f64::from_le_bytes(origin[0..8].try_into().unwrap_or([0; 8]));
-            space.origin[1] = f64::from_le_bytes(origin[8..16].try_into().unwrap_or([0; 8]));
-        }
-        vec![Value::new(Tag::new("value"), encode_space(&space))]
-    }
-}
-
-struct IncrementText;
-
-impl Primitive for IncrementText {
-    fn invoke(&self, inputs: &[Value]) -> Vec<Value> {
-        let val = inputs.first().map(Value::payload).unwrap_or(&[]);
-        vec![Value::new(
-            Tag::new("value"),
-            increment_text_fn(val),
+            pure_fn::fold_apply(key, left, right),
         )]
     }
 }

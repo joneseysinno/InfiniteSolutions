@@ -14,10 +14,25 @@ use infinite_presenter::core::{
 use crate::facade::addr::presenter_addr;
 use crate::facade::open::Inner;
 use crate::facade::ports::Glyphs;
+use crate::facade::record::{decode_link_payload, payload_key};
 
 /// Placeable records over the real store.
 pub struct Scene {
     pub(crate) inner: Arc<Inner>,
+}
+
+fn shape_payload(inner: &Inner, space: &[u8]) -> Vec<u8> {
+    let key = payload_key(space);
+    for (bytes, payload) in inner.overlay_pending(&key, &inner_successor(&key)) {
+        if bytes.as_slice() == key.as_slice() {
+            return payload;
+        }
+    }
+    inner.current_value(&key).unwrap_or_default()
+}
+
+fn inner_successor(key: &[u8]) -> Vec<u8> {
+    crate::facade::open::Inner::successor_key(key)
 }
 
 impl Port for Scene {
@@ -55,12 +70,14 @@ impl Port for Scene {
                     accepts: true,
                     origin: [0.0, 0.0],
                     primitive: String::new(),
-                    link: None,
-                    text: String::new(),
                 }
             } else {
                 continue;
             };
+            let shape = shape_payload(&self.inner, &bytes);
+            let text = String::from_utf8_lossy(&shape).into_owned();
+            let link = decode_link_payload(&shape)
+                .map(|(from, to)| (presenter_addr(&from), presenter_addr(&to)));
             // An unauthored primitive is an area, not an error: every record written
             // before D46 is one, and defaulting here is what keeps them decodable.
             let primitive = if record.primitive.is_empty() {
@@ -70,7 +87,7 @@ impl Port for Scene {
             };
             let em = record.down[1].max(record.down[0]).max(1e-12);
             let (across, down) = if &*primitive == TEXT {
-                let ink = GlyphsPort::measure(&glyphs, &record.text, em);
+                let ink = GlyphsPort::measure(&glyphs, &text, em);
                 (
                     Extent::fixed((ink.max.x - ink.min.x).max(1e-12)),
                     Extent::fixed(em),
@@ -88,13 +105,11 @@ impl Port for Scene {
                 style: record.style.into_boxed_str(),
                 detail_override: record.detail_override,
                 primitive,
-                link: record
-                    .link
-                    .map(|(from, to)| (presenter_addr(&from), presenter_addr(&to))),
+                link,
                 hosts_space: record.hosts_space,
                 accepts: record.accepts,
                 position: infinite_presenter::core::Point::new(record.origin[0], record.origin[1]),
-                text: record.text.into_boxed_str(),
+                text: text.into_boxed_str(),
             });
         }
         set

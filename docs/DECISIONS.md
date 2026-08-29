@@ -1580,7 +1580,7 @@ under R20 no status line for it is written until the change that lands it says s
 
 ---
 
-## D49 — A text run lives on the space record · **locked** · 2026-08-28 · opens O26
+## D49 — A text run lives on the space record · **superseded by D59** · 2026-08-28 · opens O26
 
 **The string is a field beside `style` and `primitive`, not a record the space points
 at.** O26's option (a), taken until a run is long enough that re-reading it per frame
@@ -1792,5 +1792,80 @@ or a parent pointer on the record.
 
 **Verified by.** `tests/spec_flatten.rs`, `tests/genesis.rs` (E4 discard unchanged;
 line-count check).
+
+---
+
+## D59 — Per-shape payload lives under the space · **locked** · 2026-08-29 · closes O26 · supersedes D49
+
+**`SpaceRecord` keeps extents, style, detail, `hosts_space`, `accepts`, origin, and
+an opaque `primitive` key. It does not keep `link` or `text`. Per-shape bytes live at
+`payload_key(space) = child(space, PAYLOAD_SLOT)` with `PAYLOAD_SLOT = 0xFFFF`.**
+Those bytes are not an IS1 space. Scene fills `Placeable::{link,text}` by a second
+read (D46 presenter artifact unchanged).
+
+**What forced it.** D46 rejected a field per primitive on `Placement`. Putting `link`
+and `text` on `SpaceRecord` relocated the same closed set one layer down. A fourth
+shape that needs a fourth field has not opened the record (E17.2).
+
+**Where it lives.** [`facade/record.rs`](src/facade/record.rs) `payload_key`;
+[`facade/ports/scene.rs`](src/facade/ports/scene.rs); Spec flatten's second put.
+
+**Verified by.** `addresses` unit test; `tests/open_record.rs`. *Must stop passing:*
+`link`/`text` as `SpaceRecord` fields; a field-per-primitive encode path.
+
+**Rejected.** Keep columns on the record (O26 option a / D49) — a third primitive
+needs a third field. A `payload: Vec<u8>` column on the record — same defect.
+
+---
+
+## D60 — A component is a stored definition plus `delegate` · **locked** · 2026-08-29 · closes O33
+
+**A component definition is bytes in the store. A use is a `BlockRecord` with
+`kind: "delegate"` (or `"composed"`) and `target` the definition's address.**
+Use is delegation (D27); there is no `Instance` and no second `instance_of` ontology.
+
+**What forced it.** Finding 29: `kind: "native"` was the only kind in `src/`.
+Sharing via a Rust `field_row()` function is not a stored definition (E18b.1).
+
+**Where it lives.** Genesis [`component_seed.rs`](src/editor/component_seed.rs);
+compositor [`BodyKind::DELEGATE`](crates/infinite-compositor/src/core/block.rs)
+already existed. Definitions resolve unions the bound graph range so a delegate
+target in another graph slot is visible.
+
+**Verified by.** `src/` contains `kind: "delegate"`; `tests/stored_component.rs`.
+*Must stop passing:* `kind: "native"` as the only kind in `src/`; a builder as the
+only share.
+
+---
+
+## D61 — Arrangement is a parent property · **locked** · 2026-08-29 · closes O35
+
+**Shape keys draw (`area`, `text`, `link`). Arrangement does not. Layout is a
+property of the parent (`across` / `down` / `absolute`) applied over child
+`Extent`s — not a shape key and not Innovator's `Stack` particle.**
+
+**What forced it.** A primitive that draws nothing is a smell, and the record
+already carries extents. Wrong here is cheap; wrong after stored `field_row`s
+would migrate every definition.
+
+**Verified by.** E18a declared set has no arrangement shape key; E20 screen lays
+out as parent extents. *Must stop passing:* a `stack` / `row` primitive minted to
+draw nothing.
+
+---
+
+## D62 — The forcing consumer is one Innovator screen · **locked** · 2026-08-29 · closes O29
+
+**The consumer that can break (R19) is one screen: `panel` + `section_header` +
+two `field_row`s + `action_bar`, authored as store data, commit routed by role
+through the interpreted composition, built with zero primitives added to E18a's
+set.** Then the builders are dropped and the screen re-seeds from the store.
+
+**What forced it.** "The editor does more" is not a consumer. SALVAGE §6 named
+this before E14. E14–E19 exist to make that table satisfiable.
+
+**Verified by.** `tests/innovator_screen.rs`; `check-rules.sh` Rule 2. *Must stop
+passing:* a screen that is only genesis builders; a native added just for this
+screen.
 
 ---

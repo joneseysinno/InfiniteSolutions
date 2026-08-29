@@ -5,6 +5,7 @@
 
 use crate::editor::addresses;
 use crate::editor::behaviour_seed;
+use crate::editor::component_seed;
 use crate::editor::screen_seed;
 use crate::editor::spec::{self, build};
 use crate::editor::styles::bootstrap_default;
@@ -61,6 +62,9 @@ pub fn seed(exists: impl Fn(&[u8]) -> bool, mut put: impl FnMut(&[u8], &[u8])) {
         &encode_selection(&[]),
     );
     put_if(&exists, &mut put, addresses::run_key(), &[1]);
+    for (key, payload) in component_seed::seed_records() {
+        put_if(&exists, &mut put, &key, &payload);
+    }
 }
 
 fn put_if(

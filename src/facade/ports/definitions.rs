@@ -19,53 +19,83 @@ pub struct Definitions {
 
 impl Port for Definitions {
     fn resolve(&self, root: &Addr) -> DefinitionSet {
-        let at = self.inner.db.stable_revision().legacy_sequence();
-        let start = root.as_bytes();
-        let end = successor(start);
-        let mut rows = match self.inner.records_in_range(start, &end, at) {
-            Ok(rows) => rows,
-            Err(e) => panic!("definition read failed (not an empty set): {e}"),
-        };
-        for (bytes, payload) in self.inner.overlay_pending(start, &end) {
-            if let Some(existing) = rows.iter_mut().find(|(b, _)| b == &bytes) {
-                existing.1 = payload;
-            } else {
-                rows.push((bytes, payload));
-            }
+        // Point reads only. A Hilbert range over `[root, successor)` is not
+        // the same as key order and can scan the whole space (E18b).
+        let mut set = ingest_point(self, root.as_bytes());
+        let graph = self.inner.graph_root.lock().expect("graph lock").clone();
+        if let Some(graph) = graph {
+            merge(&mut set, ingest_slots(self, &graph, 16));
         }
-        let mut set = DefinitionSet::default();
-        for (bytes, payload) in rows {
-            let at = compositor_addr(&bytes);
-            if let Some(composition) = crate::facade::decode_composition(&payload) {
-                set.compositions.insert(at.clone(), composition);
-                set.blocks.insert(
-                    at.clone(),
-                    Block {
-                        signature: Signature::default(),
-                        body: Body {
-                            kind: BodyKind::new(BodyKind::COMPOSED),
-                            target: at,
-                        },
-                    },
-                );
-            } else {
-                set.blocks.insert(
-                    at.clone(),
-                    Block {
-                        signature: Signature::default(),
-                        body: Body {
-                            kind: BodyKind::new(BodyKind::NATIVE),
-                            target: at,
-                        },
-                    },
-                );
-            }
+        if root.as_bytes().len() == 1 {
+            merge(&mut set, ingest_slots(self, root.as_bytes(), 16));
         }
         super::blocks::inject_natives(&mut set);
         set
     }
 }
 
-fn successor(bytes: &[u8]) -> Vec<u8> {
-    Inner::successor_key(bytes)
+fn ingest_slots(defs: &Definitions, parent: &[u8], last: u32) -> DefinitionSet {
+    let mut set = ingest_point(defs, parent);
+    for slot in 1..=last {
+        let mut key = parent.to_vec();
+        key.push((slot >> 8) as u8);
+        key.push((slot & 0xFF) as u8);
+        merge(&mut set, ingest_point(defs, &key));
+    }
+    set
+}
+
+fn ingest_point(defs: &Definitions, key: &[u8]) -> DefinitionSet {
+    let mut rows = Vec::new();
+    if let Some(payload) = defs.inner.current_value(key) {
+        rows.push((key.to_vec(), payload));
+    }
+    let end = Inner::successor_key(key);
+    for (bytes, payload) in defs.inner.overlay_pending(key, &end) {
+        if bytes.as_slice() == key {
+            if let Some(existing) = rows.iter_mut().find(|(b, _)| b == key) {
+                existing.1 = payload;
+            } else {
+                rows.push((bytes, payload));
+            }
+        }
+    }
+    let mut set = DefinitionSet::default();
+    for (bytes, payload) in rows {
+        let at = compositor_addr(&bytes);
+        if let Some(composition) = crate::facade::decode_composition(&payload) {
+            set.compositions.insert(at.clone(), composition);
+            set.blocks.insert(
+                at.clone(),
+                Block {
+                    signature: Signature::default(),
+                    body: Body {
+                        kind: BodyKind::new(BodyKind::COMPOSED),
+                        target: at,
+                    },
+                },
+            );
+        } else {
+            set.blocks.insert(
+                at.clone(),
+                Block {
+                    signature: Signature::default(),
+                    body: Body {
+                        kind: BodyKind::new(BodyKind::NATIVE),
+                        target: at,
+                    },
+                },
+            );
+        }
+    }
+    set
+}
+
+fn merge(into: &mut DefinitionSet, extra: DefinitionSet) {
+    for (at, composition) in extra.compositions {
+        into.compositions.entry(at).or_insert(composition);
+    }
+    for (at, block) in extra.blocks {
+        into.blocks.entry(at).or_insert(block);
+    }
 }

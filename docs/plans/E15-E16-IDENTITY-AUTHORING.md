@@ -43,7 +43,7 @@ A plan that lands E15–E16 and stops has not answered the question.
 
 **E15 before E16 is mandatory.** Builders that seed more than fifteen children fail under today's ceiling. E16.2 may land in the same change as E15.2 if rewriting keys once is cheaper; it must not land *before* derivation works.
 
-**Out of scope.** E17 (open `SpaceRecord`), E18a/b (alphabet registration and stored components), E19 (focus), E20 (Innovator screen). Spec here is authoring sugar, not a stored component definition.
+**Out of scope.** E17–E20 live in [`E17-E20-RECORD-ALPHABET.md`](./E17-E20-RECORD-ALPHABET.md). Spec here is authoring sugar, not a stored component definition.
 
 ---
 

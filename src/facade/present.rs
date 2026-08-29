@@ -307,7 +307,8 @@ impl Store {
         if let Some(addr) = &placement.precision_floor {
             findings.push(from_precision_floor(addr.as_bytes()));
         }
-        if let Some(root) = self.inner.graph_root.lock().expect("graph lock").clone() {
+        let graph = self.inner.graph_root.lock().expect("graph lock").clone();
+        if let Some(root) = graph {
             if self.pending_at(&root).is_some() || self.has(&root) {
                 findings.extend(self.link_at(&root).findings);
             }

@@ -21,11 +21,47 @@ pub struct SpaceRecord {
     /// Authored origin, across then down. Drag writes this (EDITOR.md §1).
     pub origin: [f64; 2],
     /// Opaque primitive key — what shape draws this (D46). Empty means `rect`.
+    /// Per-shape payload (text run, link endpoints, …) lives at [`payload_key`].
     pub primitive: String,
-    /// The two addresses this connects, when it is a link rather than an area (D46).
-    pub link: Option<(Vec<u8>, Vec<u8>)>,
-    /// The run to draw when `primitive` is `text` (E13.0, O26 option a).
-    pub text: String,
+}
+
+/// Reserved child slot for a space's per-shape payload (E17 / O26).
+pub const PAYLOAD_SLOT: u32 = 0xFFFF;
+
+/// Address of the shape payload under `space`. Bytes there are not an `IS1` record.
+pub fn payload_key(space: &[u8]) -> Vec<u8> {
+    let mut out = space.to_vec();
+    out.push((PAYLOAD_SLOT >> 8) as u8);
+    out.push((PAYLOAD_SLOT & 0xFF) as u8);
+    out
+}
+
+/// Length-prefixed pair of addresses (wire / link payload).
+pub fn encode_link_payload(from: &[u8], to: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(4 + from.len() + to.len());
+    out.extend_from_slice(&(from.len() as u16).to_le_bytes());
+    out.extend_from_slice(from);
+    out.extend_from_slice(&(to.len() as u16).to_le_bytes());
+    out.extend_from_slice(to);
+    out
+}
+
+/// Inverse of [`encode_link_payload`].
+pub fn decode_link_payload(bytes: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
+    if bytes.len() < 4 {
+        return None;
+    }
+    let n = u16::from_le_bytes(bytes[0..2].try_into().ok()?) as usize;
+    if bytes.len() < 2 + n + 2 {
+        return None;
+    }
+    let from = bytes[2..2 + n].to_vec();
+    let rest = &bytes[2 + n..];
+    let m = u16::from_le_bytes(rest[0..2].try_into().ok()?) as usize;
+    if rest.len() < 2 + m {
+        return None;
+    }
+    Some((from, rest[2..2 + m].to_vec()))
 }
 
 const SPACE_MAGIC: &[u8] = b"IS1";
@@ -101,15 +137,6 @@ pub fn encode_space(record: &SpaceRecord) -> Vec<u8> {
     // the fields it predates take their documented default. The layout is still fixed
     // — it only grows at the end — so a re-seed is bit-identical (E4).
     put_str(&mut out, &record.primitive);
-    match &record.link {
-        None => out.push(0),
-        Some((from, to)) => {
-            out.push(1);
-            put_bytes(&mut out, from);
-            put_bytes(&mut out, to);
-        }
-    }
-    put_str(&mut out, &record.text);
     out
 }
 
@@ -144,26 +171,9 @@ pub fn decode_space(bytes: &[u8]) -> Option<SpaceRecord> {
     } else {
         [0.0, 0.0]
     };
-    let (primitive, link, text) = match take_str(bytes, i) {
-        Some((primitive, mut n)) => {
-            let link = match bytes.get(n) {
-                Some(1) => {
-                    let (from, next) = take_bytes(bytes, n + 1)?;
-                    let (to, next) = take_bytes(bytes, next)?;
-                    n = next;
-                    Some((from, to))
-                }
-                Some(0) => {
-                    n += 1;
-                    None
-                }
-                _ => None,
-            };
-            let text = take_str(bytes, n).map(|(t, _)| t).unwrap_or_default();
-            (primitive, link, text)
-        }
-        None => (String::new(), None, String::new()),
-    };
+    let primitive = take_str(bytes, i)
+        .map(|(p, _)| p)
+        .unwrap_or_default();
     Some(SpaceRecord {
         across,
         down,
@@ -173,8 +183,6 @@ pub fn decode_space(bytes: &[u8]) -> Option<SpaceRecord> {
         accepts,
         origin,
         primitive,
-        link,
-        text,
     })
 }
 

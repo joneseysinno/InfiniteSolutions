@@ -47,9 +47,7 @@ fn click(store: &facade::Store, key: &[u8]) {
 }
 
 fn field_text(store: &facade::Store, key: &[u8]) -> String {
-    decode_space(&store.stored_at(key).expect("inspector field stored"))
-        .expect("IS1")
-        .text
+    String::from_utf8_lossy(&store.payload_at(key).expect("inspector payload")).into_owned()
 }
 
 #[test]

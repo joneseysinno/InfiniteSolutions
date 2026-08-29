@@ -162,6 +162,21 @@ impl Store {
         self.inner.current_value(origin)
     }
 
+    /// Pending, else stored, at `origin`.
+    pub fn resolved_at(&self, origin: &[u8]) -> Option<Vec<u8>> {
+        self.pending_at(origin).or_else(|| self.stored_at(origin))
+    }
+
+    /// Shape payload under `space` (E17).
+    pub fn payload_at(&self, space: &[u8]) -> Option<Vec<u8>> {
+        self.resolved_at(&super::record::payload_key(space))
+    }
+
+    /// Writes the shape payload under `space`.
+    pub fn put_payload(&self, space: &[u8], bytes: &[u8]) {
+        self.put(&super::record::payload_key(space), bytes);
+    }
+
     /// Fsyncs the session WAL so a crash loses at most the unflushed tail (D8).
     pub fn flush_journal(&self) -> Result<(), EngineError> {
         let session = {

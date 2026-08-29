@@ -20,5 +20,5 @@ fn the_editor_behaviour_composition_links() {
         !out.value.steps.is_empty(),
         "link returns a plan, not a Result"
     );
-    assert_eq!(out.value.steps.len(), 25, "twenty-five behaviour blocks, one step each");
+    assert_eq!(out.value.steps.len(), 30, "thirty behaviour blocks, one step each");
 }

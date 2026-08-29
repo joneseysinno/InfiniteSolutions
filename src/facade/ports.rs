@@ -10,6 +10,7 @@ mod backends;
 mod blocks;
 mod clock;
 mod definitions;
+pub(crate) mod pure_fn;
 mod glyphs;
 mod journal;
 mod provenance;

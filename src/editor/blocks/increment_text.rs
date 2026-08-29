@@ -1,13 +1,8 @@
-//! `increment-text` — parse the text run as an integer, add one, write it back.
+//! `increment-text` — parse a text payload as an integer, add one, write it back.
 
-use crate::facade::{decode_space, encode_space};
-
-/// Increments the numeric text payload of a space record.
+/// Increments a UTF-8 numeric payload (E17: not a `SpaceRecord` field).
 pub fn increment_text(val: &[u8]) -> Vec<u8> {
-    let Some(mut space) = decode_space(val) else {
-        return val.to_vec();
-    };
-    let n: i64 = space.text.parse().unwrap_or(0);
-    space.text = (n + 1).to_string();
-    encode_space(&space)
+    let s = std::str::from_utf8(val).unwrap_or("0");
+    let n: i64 = s.trim().parse().unwrap_or(0);
+    (n + 1).to_string().into_bytes()
 }

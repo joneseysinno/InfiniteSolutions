@@ -67,17 +67,20 @@ pub fn activate(store: &Store, x: f64, y: f64) {
 pub fn refresh(store: &Store) {
     let zoom = store.camera().zoom;
     let run_label = if graph_running(store) { "run" } else { "pause" };
+    let zoom_label = format!("zoom {zoom:.0}");
     store.put(
         addresses::toolbar_zoom_key(),
-        &encode_space(&text_field(0.02, &format!("zoom {zoom:.0}"))),
+        &encode_space(&text_field(0.02)),
     );
+    store.put_payload(addresses::toolbar_zoom_key(), zoom_label.as_bytes());
     store.put(
         addresses::toolbar_run_key(),
-        &encode_space(&run_field(run_label)),
+        &encode_space(&run_field()),
     );
+    store.put_payload(addresses::toolbar_run_key(), run_label.as_bytes());
 }
 
-fn run_field(run: &str) -> SpaceRecord {
+fn run_field() -> SpaceRecord {
     SpaceRecord {
         across: [0.08, 0.08, 0.0],
         down: [0.04, 0.04, 0.0],
@@ -87,12 +90,10 @@ fn run_field(run: &str) -> SpaceRecord {
         accepts: true,
         origin: [0.34, 0.02],
         primitive: "text".into(),
-        link: None,
-        text: run.into(),
     }
 }
 
-fn text_field(origin_y: f64, run: &str) -> SpaceRecord {
+fn text_field(origin_y: f64) -> SpaceRecord {
     SpaceRecord {
         across: [0.0, 0.0, 0.0],
         down: [0.0, 0.025, 0.0],
@@ -102,7 +103,5 @@ fn text_field(origin_y: f64, run: &str) -> SpaceRecord {
         accepts: false,
         origin: [0.02, origin_y],
         primitive: "text".into(),
-        link: None,
-        text: run.into(),
     }
 }

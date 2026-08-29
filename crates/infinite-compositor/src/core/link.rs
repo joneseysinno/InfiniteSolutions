@@ -25,13 +25,26 @@ use crate::core::wire::Wire;
 /// Returns an [`Outcome`], never a `Result`: a composition with one bad wire still
 /// runs the other ninety (D21).
 pub fn link(defs: &DefinitionSet, root: &Addr) -> Outcome<Plan> {
+    link_path(defs, root, &mut BTreeSet::new())
+}
+
+fn link_path(defs: &DefinitionSet, root: &Addr, path: &mut BTreeSet<Addr>) -> Outcome<Plan> {
+    if !path.insert(root.clone()) {
+        return Outcome::with(Plan::default(), vec![delegate_cycle(root)]);
+    }
+    let out = link_inner(defs, root, path);
+    path.remove(root);
+    out
+}
+
+fn link_inner(defs: &DefinitionSet, root: &Addr, path: &mut BTreeSet<Addr>) -> Outcome<Plan> {
     let Some(composition) = defs.composition(root) else {
         if let Some(block) = defs.block(root) {
             if block.body.kind.key() == BodyKind::COMPOSED
                 || block.body.kind.key() == BodyKind::DELEGATE
                 || block.body.kind.key() == BodyKind::REGION
             {
-                return link(defs, &block.body.target);
+                return link_path(defs, &block.body.target, path);
             }
             return Outcome::clean(Plan {
                 steps: vec![Step {
@@ -73,13 +86,13 @@ pub fn link(defs: &DefinitionSet, root: &Addr) -> Outcome<Plan> {
             if block.body.target == *root {
                 continue;
             }
-            let inner = link(defs, &block.body.target);
+            let inner = link_path(defs, &block.body.target, path);
             findings.extend(inner.findings);
             steps.extend(inner.value.steps);
             continue;
         }
         if key == BodyKind::REGION {
-            let inner = link(defs, &block.body.target);
+            let inner = link_path(defs, &block.body.target, path);
             findings.extend(inner.findings);
             let mut step = step_for(addr, block, composition);
             step.inner = Some(inner.value);
@@ -272,6 +285,16 @@ fn count_of(counts: &[((Addr, Box<str>), u32)], addr: &Addr, port: &str) -> u32 
         .find(|((a, p), _)| a == addr && p.as_ref() == port)
         .map(|(_, n)| *n)
         .unwrap_or(0)
+}
+
+fn delegate_cycle(site: &Addr) -> Finding {
+    Finding::new(
+        site.clone(),
+        kind::CYCLE,
+        "a composed or delegate body that names an address already on the link path",
+        "an acyclic definition",
+        "point this body at a definition that does not lead back here",
+    )
 }
 
 fn unresolved(site: &Addr) -> Finding {

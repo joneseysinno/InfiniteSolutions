@@ -141,27 +141,30 @@ cannot build an app in it.* Instantiated:
 
 ## 5 · The native block set
 
-Seven. Each is a file in `src/editor/blocks/`, holds a plain Rust function
-over opaque payloads, and is registered under a string key by
-`src/facade/ports/blocks.rs`. The block's own file names no layer crate.
+Seven effect keys (E18a). Variety that is not store I/O lives in the pure-fn
+table (`map` / `fold` dispatch), not in new natives. Registration is
+`src/facade/ports/blocks.rs`. A plain Rust function over opaque payloads may
+still live in `src/editor/blocks/` as table data; it is not a native.
 
-| Key | Signature | Why it is needed | §1 interaction |
-|---|---|---|---|
-| `probe-at` | point → address? | the pointer has to become an address, and only the presenter can do that | select, drag, wire |
-| `read` | address → value | the composition has to see the store | all six |
-| `amend` | (address, value) → pending | the write path, and the only one (D24) | drag, wire |
-| `commit` | address → committed | the commit boundary has to be authored, not implicit | drag (on release), wire (on release) |
-| `offset` | (point, point) → point | a drag is a delta. Every number is inside a block (L3) | drag, pan |
-| `gate` | (value, flag) → value? | "on press, not on move" has to be expressible | drag, wire |
-| `displace` | (origin, delta) → origin | drag writes an authored position. `offset` produces the delta; without a block that applies it, `amend` would have to interpret a point as a record patch | drag |
+| Key | Signature | Why it is needed | R32 (two domains) | §1 interaction |
+|---|---|---|---|---|
+| `probe-at` | point → address? | the pointer has to become an address, and only the presenter can do that | editor hit-test; any authored pointer tool | select, drag, wire |
+| `read` | address → value | the composition has to see the store | editor; every interpreted graph | all six |
+| `amend` | (address, value) → pending | the write path, and the only one (D24) | drag; field typing | drag, wire, type |
+| `commit` | address → committed | the commit boundary has to be authored, not implicit | drag release; role-routed field commit | drag, wire, type |
+| `gate` | (value, flag) → value? | "on press, not on move" has to be expressible | drag; selection / place / wire / type | drag, wire, type |
+| `map` | (fn, val, aux?) → out | one machine; variety is a registered pure-fn key | offset/displace/set-origin; increment / append-char | drag, place, type |
+| `fold` | (fn, left, right) → out | combination order (PARALLELISM home) | field_row; action_bar / panel | compose |
 
 These are **app blocks, not platform concepts** (R32). Coach Assistant does not
 need `probe-at`. So it is not platform, and it does not want a place in any layer.
 It is registered under a string key by the app that needs it, which is exactly
 what R4's registry mechanism is for.
 
-**A seventh block needs a line in this section saying which of §1's six
-interactions requires it.** Not a decision record, but not silent either.
+**A new effect key needs a line in this section saying which of §1's six
+interactions requires it, and a second consumer with no shared purpose (R32).**
+Not a decision record, but not silent either. `increment-text`, `encode-selection`,
+`encode-wire`, `set-origin`, `offset`, and `displace` are pure-fn keys, not natives.
 
 ---
 

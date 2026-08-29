@@ -93,19 +93,20 @@ fn drag_is_performed_by_the_interpreted_composition() {
         "the interpreted composition must move the space"
     );
 
-    let delta_out = slot(addresses::behaviour_offset_key(), "delta");
-    let from_in = slot(addresses::behaviour_offset_key(), "from");
-    let to_in = slot(addresses::behaviour_offset_key(), "to");
-    let declared = store.inputs_of(&delta_out);
+    let out = slot(addresses::behaviour_offset_key(), "out");
+    let fn_in = slot(addresses::behaviour_offset_key(), "fn");
+    let val_in = slot(addresses::behaviour_offset_key(), "val");
+    let aux_in = slot(addresses::behaviour_offset_key(), "aux");
+    let declared = store.inputs_of(&out);
     assert_eq!(
         declared,
-        vec![from_in.clone(), to_in],
+        vec![fn_in, val_in.clone(), aux_in],
         "provenance recovers the exact declared input set"
     );
-    let downstream = store.stale_downstream(&from_in);
+    let downstream = store.stale_downstream(&val_in);
     assert_eq!(
         downstream,
-        vec![delta_out],
+        vec![out],
         "an input yields exactly the downstream address set"
     );
 

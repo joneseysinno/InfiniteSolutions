@@ -1,11 +1,15 @@
 # Infinite Solutions — The Authoring Stack (E14–E20)
 
-> **Status:** draft 3, 2026-08-29. **E14, E14.1, E15, and E16 landed** (readable text via glyphon;
-> hysteresis threaded through `place`; derived identity + Spec authoring). Remaining stages E17–E20 are not started.
+> **Status:** draft 5, 2026-08-29. **E14–E20 landed** (readable text; hysteresis; derived
+> identity + Spec; open record; declared alphabet; stored components; focus; Innovator screen).
 > R20 / D41: a stage is `landed` only when its **Verified by** cell names a check.
 >
 > **Records nothing** (R29). Every refactor below is a *proposal*; every trigger is a
 > candidate. Same standing as [`PARALLELISM.md`](../PARALLELISM.md).
+>
+> **Changed in draft 4:** E17–E20 stage plan written
+> ([`E17-E20-RECORD-ALPHABET.md`](./E17-E20-RECORD-ALPHABET.md)); stage-table Verified-by
+> cells and O26 / O33 / O35 / O29 point there as proposed locks.
 >
 > **Changed in draft 2:** §2.1 gains the root cause of the fifteen-child ceiling, which
 > draft 1 recorded only as a symptom. §5 is new — the alphabet, and the two rules that
@@ -20,6 +24,8 @@
 > Written under R28. Raises findings 25–29. Opens O32–O35.
 > E15–E16 stage plan: [`E15-E16-IDENTITY-AUTHORING.md`](./E15-E16-IDENTITY-AUTHORING.md)
 > (O32 → D57, O34 → D58).
+> E17–E20 stage plan: [`E17-E20-RECORD-ALPHABET.md`](./E17-E20-RECORD-ALPHABET.md)
+> (O26 / O33 / O35 / O29 proposed locks live there).
 
 ---
 
@@ -186,11 +192,11 @@ no way to *author* a four-block composition, so it was compiled in.
 | **E14.1** | Hysteresis reaches the running path | landed | `crates/infinite-presenter/tests/hysteresis_live.rs` | Place twice across a level boundary through a real `View`; the level does not change twice inside one dead band. *Must stop passing:* `detail(…, None)` at both `place.rs` call sites |
 | **E15** | **Derived identity** | **landed** | [`E15-E16-IDENTITY-AUTHORING.md`](./E15-E16-IDENTITY-AUTHORING.md) E15.0–E15.3 | (a) A space holds **200 children**. (b) Two sessions mint concurrently, no collision. (c) The same authored screen produces byte-identical addresses on two machines. (d) Delete a child, mint again, undo the delete — the restored value lands on its own address. *Must stop passing:* `next_child`'s store scan, and `significant_bits`' inference (§2.1). **O32 → D57** |
 | **E16** | **The authoring vocabulary** | **landed** | [`E15-E16-IDENTITY-AUTHORING.md`](./E15-E16-IDENTITY-AUTHORING.md) E16.0–E16.2 | `genesis.rs` under 150 lines while seeding **strictly more** spaces than today; E4's discard test unchanged; the committed store carries no containment field, only addresses. *Must stop passing:* 19 hand-written `SpaceRecord` literals. **O34 → D58** |
-| **E17** | **The record is open** | not started | — | A fourth shape touches **no** existing record field and **no** existing decoder branch. *Must stop passing:* `link` and `text` as `SpaceRecord` fields |
-| **E18a** | **Declare the alphabet** | not started | — | The set is written down with each element's two-domain justification (R32) and registered by string key. Both bounding rules of §5.5 run in `check-rules.sh`. *Must stop passing:* the current native registry, where §5.3's six one-offs each fail rule 1 |
-| **E18b** | **Build the components from it** | not started | — | Two different screens share one `field_row` **definition stored in the store**; editing the definition changes both **with no recompile**. And: **at least one block in the system has `kind != "native"`**. *Must stop passing:* today's count of composed blocks, which is zero |
-| **E19** | **Focus and keystrokes** | not started | — | Type into a field row; the value commits through the interpreted composition; `Ctrl+Z` restores it. *Must stop passing:* E13.3's property write, which has no focus model |
-| **E20** | **O29 — the Innovator screen** | not started | — | `panel` + `section_header` + two `field_row`s + `action_bar`, authored, commit routed by role, **built with zero primitives added to E18a's set**. Then delete the Rust builders and re-seed from the store: it still renders |
+| **E17** | **The record is open** | not started | [`E17-E20-RECORD-ALPHABET.md`](./E17-E20-RECORD-ALPHABET.md) E17.0–E17.2 | A fourth shape touches **no** existing record field and **no** existing decoder branch. *Must stop passing:* `link` and `text` as `SpaceRecord` fields. **O26 proposed lock** in that plan |
+| **E18a** | **Declare the alphabet** | not started | [`E17-E20-RECORD-ALPHABET.md`](./E17-E20-RECORD-ALPHABET.md) E18a.0–E18a.2 | The set is written down with each element's two-domain justification (R32) and registered by string key. Both bounding rules of §5.5 run in `check-rules.sh`. *Must stop passing:* the current native registry, where §5.3's six one-offs each fail rule 1. **O33 / O35 proposed locks** in that plan |
+| **E18b** | **Build the components from it** | not started | [`E17-E20-RECORD-ALPHABET.md`](./E17-E20-RECORD-ALPHABET.md) E18b.0–E18b.2 | Two different screens share one `field_row` **definition stored in the store**; editing the definition changes both **with no recompile**. And: **at least one block in the system has `kind != "native"`**. *Must stop passing:* today's count of composed blocks, which is zero |
+| **E19** | **Focus and keystrokes** | not started | [`E17-E20-RECORD-ALPHABET.md`](./E17-E20-RECORD-ALPHABET.md) E19.0–E19.2 | Type into a field row; the value commits through the interpreted composition; `Ctrl+Z` restores it. *Must stop passing:* E13.3's property write, which has no focus model |
+| **E20** | **O29 — the Innovator screen** | not started | [`E17-E20-RECORD-ALPHABET.md`](./E17-E20-RECORD-ALPHABET.md) E20.0–E20.2 | `panel` + `section_header` + two `field_row`s + `action_bar`, authored, commit routed by role, **built with zero primitives added to E18a's set**. Then delete the Rust builders and re-seed from the store: it still renders. **O29 proposed lock** in that plan |
 
 **E20 is the deliverable.** This document repeats E13's warning about itself: a plan
 that lands E14–E19 and stops has not answered the question.
@@ -419,10 +425,11 @@ never once delegated. This is the most-cited unused decision in the project.
 | # | Item | Trigger |
 |---|---|---|
 | **O32** | **What encodes an address's depth?** | **Locked as D57**: carried length + pure `child` + `MintSeed`; 16-bit slots; no nibble inference (R-B) |
-| **O33** | **Is a component a definition or a delegation?** Innovator used an `instance_of` edge to a `component_def` node. D27 says use is delegation and `Instance` is not a primitive. They may be one thing said twice, or D27 may not cover appearance | E18a |
+| **O33** | **Is a component a definition or a delegation?** | **Locked as D60**: stored definition + `delegate` (D27). Not Innovator's `instance_of` |
 | **O34** | **Does the authoring vocabulary live in the editor or the facade?** | **Locked as D58**: Spec/builders in the editor; façade encode-only (R2) |
-| **O35** | **Is arrangement a shape kind or a property of the parent?** §5.4. Innovator made `Stack` a particle kind; the argument against is that a primitive which draws nothing is a smell, and the record already carries the extents. Deciding it wrong is cheap to reverse before E18b and expensive after | E18a |
-| O26 | Where a text run's string lives | **Answered by R-D as option (b)**, ahead of its stated trigger, because §2.3's argument is structural rather than about run length |
+| **O35** | **Is arrangement a shape kind or a property of the parent?** | **Locked as D61**: parent property, not a shape key |
+| **O26** | **Where a text run's string lives** | **Locked as D59**: option **b** — per-shape payload under the space |
+| **O29** | **Should the forcing consumer be an Innovator screen?** | **Locked as D62**: yes — E20 is the consumer that can break (R19) |
 | O28 | Who mints an address | Subsumed by O32 |
 | O10 | Ownership and capability | E15 creates addresses; *who owns this space* wants answering at creation, not backfill. `Innovator/src/auth` is still unread |
 

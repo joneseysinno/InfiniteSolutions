@@ -26,9 +26,7 @@ fn seeded() -> (tempfile::TempDir, facade::Store) {
 }
 
 fn field_text(store: &facade::Store, key: &[u8]) -> String {
-    decode_space(&store.stored_at(key).expect("toolbar field stored"))
-        .expect("IS1")
-        .text
+    String::from_utf8_lossy(&store.payload_at(key).expect("toolbar payload")).into_owned()
 }
 
 fn click_toolbar(store: &facade::Store, key: &[u8], x_fraction: f64) {

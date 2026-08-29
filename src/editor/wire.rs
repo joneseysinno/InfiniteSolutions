@@ -1,7 +1,6 @@
 //! Wiring by pointer — preview at [`addresses::GRAPH_ROOT_KEY`], commit via composition.
 
 use crate::editor::addresses;
-use crate::editor::app;
 use crate::editor::mint;
 use crate::editor::tags;
 use crate::facade::{
@@ -46,22 +45,8 @@ fn valid_graph(from: &[u8], to: &[u8]) -> CompositionRecord {
     CompositionRecord {
         compilable: false,
         blocks: vec![
-            native(
-                from,
-                b"encode-selection",
-                vec![
-                    port("hit", true, tags::ADDRESS, true),
-                    port("out", false, tags::VALUE, false),
-                ],
-            ),
-            native(
-                to,
-                b"encode-selection",
-                vec![
-                    port("hit", true, tags::ADDRESS, true),
-                    port("out", false, tags::VALUE, false),
-                ],
-            ),
+            mapped(from),
+            mapped(to),
         ],
         wires: vec![],
     }
@@ -71,15 +56,7 @@ fn mismatch_graph(from: &[u8], to: &[u8]) -> CompositionRecord {
     CompositionRecord {
         compilable: false,
         blocks: vec![
-            native(
-                from,
-                b"offset",
-                vec![
-                    port("from", true, tags::POINT, false),
-                    port("to", true, tags::POINT, false),
-                    port("delta", false, tags::POINT, false),
-                ],
-            ),
+            mapped(from),
             native(
                 to,
                 b"commit",
@@ -90,10 +67,23 @@ fn mismatch_graph(from: &[u8], to: &[u8]) -> CompositionRecord {
             ),
         ],
         wires: vec![WireRecord {
-            sources: vec![(from.to_vec(), "delta".into())],
+            sources: vec![(from.to_vec(), "out".into())],
             sinks: vec![(to.to_vec(), "addr".into())],
         }],
     }
+}
+
+fn mapped(at: &[u8]) -> BlockRecord {
+    native(
+        at,
+        b"map",
+        vec![
+            port("fn", true, tags::VALUE, true),
+            port("val", true, tags::VALUE, true),
+            port("aux", true, tags::VALUE, false),
+            port("out", false, tags::VALUE, false),
+        ],
+    )
 }
 
 fn native(at: &[u8], key: &[u8], ports: Vec<PortRecord>) -> BlockRecord {
@@ -153,6 +143,5 @@ pub fn finish(store: &Store, to: &[u8], mismatch: bool) {
             &preview_graph(&from, to, mismatch),
         );
         store.amend(addresses::wire_commit_key(), &[1]);
-        app::connect(store, &from, to);
     }
 }
